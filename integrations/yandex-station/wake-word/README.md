@@ -60,6 +60,8 @@ PHRASES
 
 The build directory must not exist. Its `bundle/` contains the ARM listener, runtime, model and private keyword files. It contains no account credentials; nevertheless keep the bundle private. Do not add model files, logs, sessions, private phrases, or device identifiers to Git.
 
+In an isolated Mac test using the freshly built Russian model, the listener and the matching native sherpa release recognized one synthetic configured phrase, ignored one unrelated synthetic phrase, and ignored the configured phrase while a fake mute input was set. This small test does not measure real-world accuracy or test the hardware mute button.
+
 ### English phrases
 
 For an English-only bundle, obtain and verify the English model. Then, from the repository root, use the same `DOT_ZIG`, `DOT_WAKE_PYTHON`, `DOT_WAKE_LIBS`, `DOT_WAKE_HEADERS` and `DOT_WAKE_RUNTIME` paths as above:
@@ -84,7 +86,7 @@ export DOT_WAKE_BUNDLE=/PRIVATE/PATH/new-english-bundle
 PHRASES
 ```
 
-The output directory must not exist. To include both languages, first complete the Russian build and add `--ru "$DOT_WAKE_BUILD_DIR/ru"` to the `bundle.py` command with a new output directory. Using two models increases memory use. English and combined bundles have not been confirmed with a live voice on the tested speaker.
+The output directory must not exist. To include both languages, first complete the Russian build and add `--ru "$DOT_WAKE_BUILD_DIR/ru"` to the `bundle.py` command with a new output directory. Using two models increases memory use. The same isolated Mac test passed for one English synthetic phrase, one unrelated phrase and a fake mute input. English and combined bundles have not been confirmed with a live voice on the tested speaker.
 
 ## Install, verify, and roll back
 
