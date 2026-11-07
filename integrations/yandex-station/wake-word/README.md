@@ -62,6 +62,8 @@ The build directory must not exist. Its `bundle/` contains the ARM listener, run
 
 In an isolated Mac test using the freshly built Russian model, the listener and the matching native sherpa release recognized one synthetic configured phrase, ignored one unrelated synthetic phrase, and ignored the configured phrase while a fake mute input was set. This small test does not measure real-world accuracy or test the hardware mute button.
 
+In a separate isolated test of the same listener at its default threshold, six short recordings of human Russian speech containing configured phrases produced the correct phrase aliases; six recordings without those phrases produced no matches. Phrase presence was labeled by a separate automatic transcription, not manual review. This small sample does not establish reliability for arbitrary phrases, accents, continuous speech or device conditions.
+
 ### English phrases
 
 For an English-only bundle, obtain and verify the English model. Then, from the repository root, use the same `DOT_ZIG`, `DOT_WAKE_PYTHON`, `DOT_WAKE_LIBS`, `DOT_WAKE_HEADERS` and `DOT_WAKE_RUNTIME` paths as above:
