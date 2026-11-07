@@ -4,12 +4,14 @@ on:
     paths:
       - 'integrations/yandex-station/**'
       - 'shared/sounds/**'
+      - 'shared/wake/**'
       - 'patches/alisa-voice-0.3.7-dot.patch'
       - '.github/workflows/yandex-station-tests.yml'
   pull_request:
     paths:
       - 'integrations/yandex-station/**'
       - 'shared/sounds/**'
+      - 'shared/wake/**'
       - 'patches/alisa-voice-0.3.7-dot.patch'
       - '.github/workflows/yandex-station-tests.yml'
   workflow_dispatch:
@@ -35,6 +37,12 @@ jobs:
           cmp "$GITHUB_WORKSPACE/shared/sounds/dot_sounds.hpp" /tmp/alisa-voice-test/engines/native/native/dot_sounds.hpp
           c++ -std=c++17 "$GITHUB_WORKSPACE/shared/sounds/tests.cpp" -o /tmp/dot-sounds-test
           /tmp/dot-sounds-test
+          c++ -std=c++17 "$GITHUB_WORKSPACE/shared/wake/match_test.cpp" -o /tmp/dot-wake-test
+          /tmp/dot-wake-test
+          DOT_WAKE_HOST=1 DOT_WAKE_BUILD_DIR=/tmp/dot-wake-build \
+            "$GITHUB_WORKSPACE/integrations/yandex-station/wake-word/build.sh"
+          python3 "$GITHUB_WORKSPACE/integrations/yandex-station/wake-word/test_offline.py" \
+            /tmp/dot-wake-build/wake-detector
           c++ -std=c++17 /tmp/alisa-voice-test/engines/native/tests/ringback.cpp -o /tmp/ringback-test
           /tmp/ringback-test
           c++ -std=c++17 /tmp/alisa-voice-test/engines/native/tests/handset_cue.cpp -o /tmp/handset-cue-test
