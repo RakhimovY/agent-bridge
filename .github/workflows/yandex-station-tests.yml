@@ -35,6 +35,7 @@ jobs:
           cmp "$GITHUB_WORKSPACE/shared/sounds/dot_sounds.hpp" /tmp/alisa-voice-test/engines/native/native/dot_sounds.hpp
           c++ -std=c++17 "$GITHUB_WORKSPACE/shared/sounds/tests.cpp" -o /tmp/dot-sounds-test
           /tmp/dot-sounds-test
+          python3 "$GITHUB_WORKSPACE/integrations/yandex-station/wake-word/test_prepare.py"
           c++ -std=c++17 /tmp/alisa-voice-test/engines/native/tests/ringback.cpp -o /tmp/ringback-test
           /tmp/ringback-test
           c++ -std=c++17 /tmp/alisa-voice-test/engines/native/tests/handset_cue.cpp -o /tmp/handset-cue-test
