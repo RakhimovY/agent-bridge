@@ -16,6 +16,8 @@ The `0.3.7` patch selects the Dot when `ALISA_DOT_ID` is present, creates an SDP
 4. After reboot, the client started automatically and the user heard another reply. The speaker process had no proxy configured.
 5. The close command returned the client to idle; call history was checked in the browser.
 6. With the ringback candidate installed, the user confirmed hearing the call tone followed by a Dot voice reply. An automated call also reached active audio and returned to idle after a close request. Reboot with this ringback version has not been separately verified.
+7. The optional local stop detector recognized two synthetic English "stop" voices and did not trigger on two synthetic ordinary phrases. Two automatic call/stop/reopen cycles succeeded. These injected audio into the test device's capture path; the user confirmed real-microphone stop and reopening on the tested device.
+8. The user confirmed that the CC0 recordings of a real telephone handset sounded good on the tested speaker. Alternative presets and per-event overrides were tested offline only.
 
 We have not tested all models or firmware versions, session expiration, the physical microphone button, long-term stability, privacy on untrusted networks, automatic factory firmware restoration, or session behavior after server-side API changes.
 
@@ -23,8 +25,9 @@ We have not tested all models or firmware versions, session expiration, the phys
 
 - `dot_signaling.hpp`: constructs requests and validates call URLs without embedding real IDs.
 - `web_auth.hpp`: required headers, JSON and SDP, `Location` parsing, and empty POST requests for attaching and stopping.
-- `voice_call.hpp`: attaches after WebRTC opens, ends the call, and provides an audio diagnostics mode.
-- `effects.hpp` and `daemon.hpp`: generate a telephone-style ringback while a Dot call connects and stop it before voice playback. The waveform and ARM build were checked; one audible device test succeeded.
+- `voice_call.hpp`: attaches after WebRTC opens, ends the call, provides an audio diagnostics mode, and optionally forwards capture audio to a local stop detector only for a configured Dot call.
+- `dot_sounds.hpp`, `effects.hpp`, and `daemon.hpp`: implement the shared sound pool, per-event custom PCM, and ringback during connection. The original ringback and recorded handset cues were confirmed by the user on the device; alternative presets and per-event overrides have offline tests only.
+- `integrations/yandex-station/stop-detector`: optional separate-process local stop detector and isolated build, with no replacement of system libraries.
 - `build_native.py`: Zig and archiver selection through variables and wrappers for cross-building on Mac.
 - `dot_signaling.cpp`: local request and URL checks using synthetic IDs.
 - `ringback.cpp`: checks the generated tone, stereo output, and silent interval without a speaker.

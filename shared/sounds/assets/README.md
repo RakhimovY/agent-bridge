@@ -1,0 +1,5 @@
+# Sound assets
+
+`classic-connected.wav` and `classic-ended.wav` are derived from **Rotary Phone Pick up and Hang up** by cookies+policy, [Freesound sound 556491](https://freesound.org/people/cookies%2Bpolicy/sounds/556491/), published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). We used the site's high-quality MP3 preview, extracted the pickup and hangup segments, adjusted their volume, applied short fades, and converted them to 48 kHz stereo 16-bit WAV. On November 7, 2026, both cues were doubled in amplitude without clipping. The source and its license were checked on November 7, 2026.
+
+The classic ringback and gentle preset are synthesized by [`../dot_sounds.hpp`](../dot_sounds.hpp). Never add private recordings or audio without redistribution rights. For new assets, document the source, license, attribution, processing, and intended event. A new preset also needs an implementation, documentation, and offline tests; adding a file alone does not make it selectable.

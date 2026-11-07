@@ -23,6 +23,11 @@ id_ed25519*
 *.img
 *.dump
 *.sqlite*
+*.pcm
+*.wav
+*.mp3
+!shared/sounds/assets/
+!shared/sounds/assets/*.wav
 backup/
 backups/
 state/
@@ -31,3 +36,5 @@ logs/
 run/
 build/
 .DS_Store
+# Generated per-integration build artifacts.
+integrations/yandex-station/stop-detector/.build/

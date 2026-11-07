@@ -1,0 +1,41 @@
+name: Yandex Station offline tests
+on:
+  push:
+    paths:
+      - 'integrations/yandex-station/**'
+      - 'shared/sounds/**'
+      - 'patches/alisa-voice-0.3.7-dot.patch'
+      - '.github/workflows/yandex-station-tests.yml'
+  pull_request:
+    paths:
+      - 'integrations/yandex-station/**'
+      - 'shared/sounds/**'
+      - 'patches/alisa-voice-0.3.7-dot.patch'
+      - '.github/workflows/yandex-station-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Check patch and generated audio without a device
+        shell: bash
+        run: |
+          set -eu
+          git init -q /tmp/alisa-voice-test
+          git -C /tmp/alisa-voice-test remote add origin https://github.com/rison1337/Alisa-ChatGPT-voice-assistant.git
+          git -C /tmp/alisa-voice-test fetch -q --depth=1 origin 2caf3b40635d0bacad1f42b2bb54b326e9c007d8
+          git -C /tmp/alisa-voice-test checkout -q FETCH_HEAD
+          git -C /tmp/alisa-voice-test apply --check "$GITHUB_WORKSPACE/patches/alisa-voice-0.3.7-dot.patch"
+          git -C /tmp/alisa-voice-test apply "$GITHUB_WORKSPACE/patches/alisa-voice-0.3.7-dot.patch"
+          cmp "$GITHUB_WORKSPACE/shared/sounds/dot_sounds.hpp" /tmp/alisa-voice-test/engines/native/native/dot_sounds.hpp
+          c++ -std=c++17 "$GITHUB_WORKSPACE/shared/sounds/tests.cpp" -o /tmp/dot-sounds-test
+          /tmp/dot-sounds-test
+          c++ -std=c++17 /tmp/alisa-voice-test/engines/native/tests/ringback.cpp -o /tmp/ringback-test
+          /tmp/ringback-test
+          c++ -std=c++17 /tmp/alisa-voice-test/engines/native/tests/handset_cue.cpp -o /tmp/handset-cue-test
+          /tmp/handset-cue-test

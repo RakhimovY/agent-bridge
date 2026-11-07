@@ -38,6 +38,8 @@ ssh -i "$STATION_KEY" -p "$SSH_PORT" "$SSH_TARGET" '/data/opt/alisa-standalone/r
 
 Wait for `agent_connected: true` and phase `idle`. Say **"Алиса, открой чат"** ("Alice, open the chat"), wait for the signal, speak to the Dot, then say **"Алиса, закрой чат"** ("Alice, close the chat"). These are the exact Russian phrases configured on our speaker; the English translations are explanatory. Check the Dot's call history. Only then test autostart with a normal speaker reboot. A computer is not needed afterwards as long as Wi-Fi and the session work.
 
+For optional bare English "stop" on the tested route, build and install the [local stop detector](../integrations/yandex-station/stop-detector/README.md). The user confirmed stop and reopening on one device; other devices and long-term false-trigger rates remain unverified.
+
 `run.sh status` and logs may reveal account and conversation information: do not publish them in full. Do not use diagnostics intended for the primary ChatGPT assistant as proof that Dot works: in our test, its text command closed the call.
 
 ## Restore the previous client

@@ -1,26 +1,46 @@
 diff --git a/engines/native/native/daemon.hpp b/engines/native/native/daemon.hpp
-index cb14b9e..58bdee9 100644
+index cb14b9e..1def663 100644
 --- a/engines/native/native/daemon.hpp
 +++ b/engines/native/native/daemon.hpp
-@@ -47,2 +47,5 @@ class VoiceDaemon {
+@@ -27,6 +27,13 @@ class VoiceDaemon {
+         try{
++            bool dot=getenv("ALISA_DOT_ID");auto preset=dot_sound_preset();
++            if(dot&&preset==DotSoundPreset::Silent)return;
++            auto custom=dot?dot_resolve_pcm("DOT_SOUND_ENDED","ended.pcm",preset):std::vector<short>{};
+             PcmOutput pcm("default");
+-            for(int block=0;block<10;++block){
++            size_t blocks=custom.empty()?10:(custom.size()+1919)/1920;
++            for(size_t block=0;block<blocks;++block){
+                 short samples[960*2];
+-                mode_cue_block(false,block,samples);pcm.write(samples,960);
++                if(!custom.empty())dot_custom_sound_block(custom,block,false,samples);
++                else if(dot&&preset==DotSoundPreset::Classic)handset_cue_block(false,block,samples);
++                else if(dot)gentle_cue_block(false,block,samples);else mode_cue_block(false,block,samples);
++                pcm.write(samples,960);
+             }pcm.drain();
+@@ -47,2 +54,5 @@ class VoiceDaemon {
              std::thread indicator_reader;
 +            std::thread ringback;
 +            std::atomic<bool> ringback_stop{false};
 +            auto stop_ringback=[&]{ringback_stop=true;if(ringback.joinable())ringback.join();};
              std::shared_ptr<Child> light;
-@@ -50,2 +53,7 @@ class VoiceDaemon {
+@@ -50,2 +60,11 @@ class VoiceDaemon {
                  if(agent&&!agent->acquire())throw std::runtime_error("native_focus_not_ready");
-+                if(!test_mode&&getenv("ALISA_DOT_ID"))ringback=std::thread([&]{
++                if(!test_mode&&getenv("ALISA_DOT_ID")&&dot_sound_preset()!=DotSoundPreset::Silent)ringback=std::thread([&]{
 +                    try{PcmOutput pcm("default");unsigned int block=0;
-+                        while(!ringback_stop&&!stopping&&!ending){short samples[1920];ringback_block(block++,samples);pcm.write(samples,960);}
++                        auto custom=dot_load_pcm("DOT_SOUND_RINGBACK");auto preset=dot_sound_preset();
++                        while(!ringback_stop&&!stopping&&!ending){short samples[1920];
++                            if(!custom.empty())dot_custom_sound_block(custom,block,true,samples);
++                            else if(preset==DotSoundPreset::Gentle)gentle_ringback_block(block,samples);else ringback_block(block,samples);
++                            ++block;pcm.write(samples,960);}
 +                    }catch(const std::exception &){}
 +                });
                  auto still_current=[&]{std::lock_guard<std::mutex> lock(mutex);
-@@ -72,2 +80,3 @@ class VoiceDaemon {
+@@ -72,2 +91,3 @@ class VoiceDaemon {
                  options.connected=[this]{std::lock_guard<std::mutex> lock(mutex);phase="active";};
 +                options.before_playback=stop_ringback;
                  std::string id=entry["id"].get<std::string>();
-@@ -86,2 +95,3 @@ class VoiceDaemon {
+@@ -86,2 +106,3 @@ class VoiceDaemon {
              }
 +            stop_ringback();
              if(agent)agent->idle();
@@ -55,63 +75,190 @@ index 0000000..375933d
 +        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-') return {};
 +    return url;
 +}
+diff --git a/engines/native/native/dot_sounds.hpp b/engines/native/native/dot_sounds.hpp
+new file mode 100644
+index 0000000..98520c5
+--- /dev/null
++++ b/engines/native/native/dot_sounds.hpp
+@@ -0,0 +1,61 @@
++#pragma once
++#include <algorithm>
++#include <cmath>
++#include <cstdint>
++#include <cstdlib>
++#include <fstream>
++#include <string>
++#include <vector>
++
++// Portable 48 kHz signed 16-bit stereo cue generators and per-event PCM overrides.
++enum class DotSoundPreset {Classic,Gentle,Silent};
++inline DotSoundPreset dot_sound_preset(){
++    const char *s=std::getenv("DOT_SOUND_PRESET");
++    if(s&&std::string(s)=="gentle")return DotSoundPreset::Gentle;
++    if(s&&std::string(s)=="silent")return DotSoundPreset::Silent;
++    return DotSoundPreset::Classic;
++}
++inline void ringback_block(unsigned int block,short *samples){
++    constexpr double pi=3.141592653589793;unsigned int cycle=block%300;
++    for(int i=0;i<960;++i){double t=(cycle*960+i)/48000.0;
++        double envelope=cycle<100?std::clamp(std::min(t/.015,(2.0-t)/.015),0.0,1.0):0.0;
++        short v=static_cast<short>(2200*envelope*(std::sin(2*pi*440*t)+std::sin(2*pi*480*t)));
++        samples[i*2]=samples[i*2+1]=v;}
++}
++inline void gentle_ringback_block(unsigned int block,short *samples){
++    constexpr double pi=3.141592653589793;unsigned int cycle=block%75;
++    for(int i=0;i<960;++i){double t=(cycle*960+i)/48000.0;
++        double envelope=cycle<15?std::clamp(std::min(t/.025,(.3-t)/.04),0.0,1.0):0.0;
++        short v=static_cast<short>(1400*envelope*std::sin(2*pi*660*t));samples[i*2]=samples[i*2+1]=v;}
++}
++inline void handset_cue_block(bool opening,int block,short *samples){
++    constexpr double pi=3.141592653589793;
++    for(int i=0;i<960;++i){unsigned int n=static_cast<unsigned int>(block*960+i);double t=n/48000.0;
++        uint32_t bits=(n+1)*747796405u+2891336453u;bits=((bits>>((bits>>28)+4))^bits)*277803737u;bits=(bits>>22)^bits;
++        double noise=(double(bits&65535)/32767.5)-1.0;
++        auto click=[&](double start,double hz,double level){double age=t-start;if(age<0||age>=.065)return 0.0;
++            return level*std::exp(-age*58)*std::min(age/.001,1.0)*(std::sin(2*pi*hz*age)+.38*noise);};
++        double v=opening?click(0,560,2400)+click(.080,1050,1800):click(0,1050,1900)+click(.072,420,2600);
++        short sample=static_cast<short>(std::clamp(v,-9000.0,9000.0));samples[i*2]=samples[i*2+1]=sample;}
++}
++inline void gentle_cue_block(bool opening,int block,short *samples){
++    constexpr double pi=3.141592653589793;double hz=(block<5)==opening?587:880;
++    for(int i=0;i<960;++i){double t=(block%5*960+i)/48000.0;
++        double env=std::clamp(std::min(t/.008,(.1-t)/.015),0.0,1.0);
++        short v=static_cast<short>(1500*env*std::sin(2*pi*hz*t));samples[i*2]=samples[i*2+1]=v;}
++}
++inline std::vector<short> dot_read_pcm(const char *path){
++    if(!path||!*path)return {};
++    std::ifstream f(path,std::ios::binary|std::ios::ate);if(!f)return {};
++    auto n=f.tellg();if(n<=0||n>std::streamoff(30*48000*4)||n%4)return {};
++    std::vector<short> pcm(size_t(n)/sizeof(short));f.seekg(0);if(!f.read(reinterpret_cast<char*>(pcm.data()),n))return {};return pcm;
++}
++inline std::vector<short> dot_load_pcm(const char *variable){return dot_read_pcm(std::getenv(variable));}
++inline std::vector<short> dot_resolve_pcm(const char *variable,const char *filename,DotSoundPreset preset){
++    auto pcm=dot_load_pcm(variable);if(!pcm.empty()||preset!=DotSoundPreset::Classic)return pcm;
++    const char *dir=std::getenv("DOT_SOUND_PACK_DIR");if(!dir||!*dir)return {};
++    return dot_read_pcm((std::string(dir)+"/"+filename).c_str());
++}
++inline void dot_custom_sound_block(const std::vector<short>&pcm,size_t block,bool loop,short *samples){
++    for(size_t i=0;i<1920;++i){size_t at=block*1920+i;samples[i]=pcm.empty()?0:loop?pcm[at%pcm.size()]:at<pcm.size()?pcm[at]:0;}
++}
 diff --git a/engines/native/native/effects.hpp b/engines/native/native/effects.hpp
-index 75c0410..bc1a897 100644
+index 75c0410..06ed84c 100644
 --- a/engines/native/native/effects.hpp
 +++ b/engines/native/native/effects.hpp
-@@ -43,2 +43,12 @@ inline std::string indicator_frame(bool speaking,double seconds,const std::strin
+@@ -7,2 +7,3 @@
+ #include <cstdlib>
++#include <cstdint>
+ 
+@@ -43,2 +44,3 @@ inline std::string indicator_frame(bool speaking,double seconds,const std::strin
  }
-+inline void ringback_block(unsigned int block,short *samples){
-+    constexpr double pi=3.141592653589793;
-+    unsigned int cycle=block%300;
-+    for(int i=0;i<960;++i){
-+        double t=(cycle*960+i)/48000.0;
-+        double envelope=cycle<100?std::clamp(std::min(t/.015,(2.0-t)/.015),0.0,1.0):0.0;
-+        short value=static_cast<short>(2200*envelope*(std::sin(2*pi*440*t)+std::sin(2*pi*480*t)));
-+        samples[i*2]=samples[i*2+1]=value;
-+    }
-+}
++#include "dot_sounds.hpp"
  inline void mode_cue_block(bool opening,int block,short *samples){
 diff --git a/engines/native/native/voice_call.hpp b/engines/native/native/voice_call.hpp
-index 6e78d3d..17eb44a 100644
+index 6e78d3d..7a425eb 100644
 --- a/engines/native/native/voice_call.hpp
 +++ b/engines/native/native/voice_call.hpp
-@@ -37,2 +37,3 @@ struct CallOptions {
+@@ -14,2 +14,3 @@
+ #include "effects.hpp"
++#include "children.hpp"
+ #include <rtc/rtc.hpp>
+@@ -26,2 +27,27 @@
+ 
++class LocalStopDetector {
++    Child child;
++    std::thread reader;
++public:
++    std::atomic<bool> ready{false};
++    explicit LocalStopDetector(const std::string &dir,std::function<void()> on_stop){
++        child.start({dir+"/runtime/ld-linux-armhf.so.3","--library-path",dir+"/runtime:/lib:/usr/lib",
++            dir+"/dot-stop-detector",dir+"/stop.tflite","-"},{"LD_PRELOAD="});
++        int fd=fcntl(child.output,F_DUPFD_CLOEXEC,3);
++        if(fd<0)throw std::runtime_error("stop_detector_pipe_failed");
++        reader=std::thread([this,fd,on_stop]{
++            std::string line;char c;
++            while(read(fd,&c,1)==1){
++                if(c!='\n'){if(line.size()<32)line+=c;else line.clear();continue;}
++                if(line=="ready")ready=true;
++                if(line=="stop")on_stop();
++                line.clear();
++            }
++            ready=false;close(fd);
++        });
++    }
++    void send(const short *pcm,size_t count){child.send(std::string(reinterpret_cast<const char *>(pcm),count*sizeof(short)));}
++    ~LocalStopDetector(){child.finish();if(reader.joinable())reader.join();}
++};
++
+ struct CallOptions {
+@@ -37,2 +63,3 @@ struct CallOptions {
      std::function<void()> connected;
 +    std::function<void()> before_playback;
  };
-@@ -58,2 +59,4 @@ class VoiceCall:public std::enable_shared_from_this<VoiceCall> {
+@@ -58,2 +85,4 @@ class VoiceCall:public std::enable_shared_from_this<VoiceCall> {
      std::string server_error;
 +    json dot_auth;
 +    std::string dot_url;
  #ifdef ALISA_USE_NETEQ
-@@ -333,3 +336,4 @@ public:
+@@ -76,2 +105,3 @@ class VoiceCall:public std::enable_shared_from_this<VoiceCall> {
+     std::atomic<bool> open_cue_played{false};
++    std::atomic<bool> stop_detector_ready{false};
+     std::atomic<unsigned int> microphone_frames{0},microphone_nonzero{0},muted_frames{0};
+@@ -272,2 +302,3 @@ public:
+             {"channel_open",channel_open.load()},{"assistant_text_seen",assistant_seen.load()},
++            {"stop_detector_ready",stop_detector_ready.load()},
+             {"probe_reply_match",probe_reply_match.load()},{"event_types",event_types},
+@@ -333,3 +364,4 @@ public:
          if(!options.parent_message_id.empty())session["parent_message_id"]=options.parent_message_id;
 -        auto answer=exchange_sdp(auth,std::string(*pc->localDescription()),session,&stop_requested);
 +        dot_auth=auth;
 +        auto answer=exchange_sdp(auth,std::string(*pc->localDescription()),session,&stop_requested,&dot_url);
          pc->setRemoteDescription(rtc::Description(answer,"answer"));
-@@ -341,2 +345,6 @@ public:
+@@ -341,2 +373,6 @@ public:
              throw std::runtime_error(server_error.empty()?"call_cancelled":server_error);}
 +        if(!dot_url.empty()){
 +            auto attach=web_request(dot_url+"/attach",auth,{}, {},&stop_requested,true);
 +            if(attach.status!=200)throw std::runtime_error("dot_attach_"+std::to_string(attach.status));
 +        }
          int error=0;
-@@ -362,2 +370,3 @@ public:
+@@ -362,6 +398,22 @@ public:
          }
++        std::unique_ptr<LocalStopDetector> local_stop;
++        if(!options.probe&&!dot_url.empty())if(const char *dir=getenv("ALISA_STOP_DIR")){
++            std::weak_ptr<VoiceCall> weak=shared_from_this();
++            try{local_stop=std::make_unique<LocalStopDetector>(dir,[weak]{if(auto self=weak.lock())self->stop();});}
++            catch(const std::exception &){}
++        }
 +        if(options.before_playback)options.before_playback();
          PcmOutput output(options.device.c_str());
-@@ -418,3 +427,3 @@ public:
+         if(!options.probe){
+-            for(int block=0;block<10&&!stop_requested&&!stopping;++block){short samples[1920];mode_cue_block(true,block,samples);output.write(samples,960);}
+-            open_cue_played=true;
++            bool dot=!dot_url.empty();auto preset=dot_sound_preset();
++            if(!dot||preset!=DotSoundPreset::Silent){
++                auto custom=dot?dot_resolve_pcm("DOT_SOUND_CONNECTED","connected.pcm",preset):std::vector<short>{};
++                size_t blocks=custom.empty()?10:(custom.size()+1919)/1920;
++                for(size_t block=0;block<blocks&&!stop_requested&&!stopping;++block){short samples[1920];
++                    if(!custom.empty())dot_custom_sound_block(custom,block,false,samples);
++                    else if(dot&&preset==DotSoundPreset::Classic)handset_cue_block(true,block,samples);
++                    else if(dot)gentle_cue_block(true,block,samples);else mode_cue_block(true,block,samples);
++                    output.write(samples,960);}
++                open_cue_played=true;
++            }
+         }
+@@ -410,2 +462,3 @@ public:
+             }
++            if(local_stop){stop_detector_ready=local_stop->ready.load();local_stop->send(in,320);}
+             auto encode_start=Clock::now();
+@@ -418,3 +471,3 @@ public:
              }
 -            if(options.probe&&!asked&&Clock::now()-start>std::chrono::milliseconds(500)&&dc->isOpen()){
 +            if(options.probe&&!getenv("ALISA_DOT_AUDIO_ONLY")&&!asked&&Clock::now()-start>std::chrono::milliseconds(500)&&dc->isOpen()){
                  relay_text(options.synthetic_text);asked=true;
-@@ -488,2 +497,3 @@ public:
+@@ -488,2 +541,3 @@ public:
              if(options.probe){
 +                if(getenv("ALISA_DOT_AUDIO_ONLY")&&Clock::now()-start>std::chrono::seconds(10))break;
                  // Wait beyond the complete reply so the server can persist the
-@@ -503,3 +513,3 @@ public:
+@@ -503,3 +557,3 @@ public:
      }
 -    ~VoiceCall(){stop();if(pc)pc->close();}
 +    ~VoiceCall(){stop();if(pc)pc->close();if(!dot_url.empty())try{web_request(dot_url+"/stop",dot_auth,{}, {},nullptr,true);}catch(...){} }
@@ -233,6 +380,30 @@ index 0000000..e75dce9
 +    assert(dot_call_url(dot, "/backend-api/tbo/" + dot + "/voice/calls/rtc_test") == request.url + "/rtc_test");
 +    assert(dot_call_url(dot, "/v1/realtime/calls/rtc_test") == request.url + "/rtc_test");
 +    assert(dot_call_url(dot, "https://evil.example/voice/calls/rtc_test").empty());
++}
+diff --git a/engines/native/tests/handset_cue.cpp b/engines/native/tests/handset_cue.cpp
+new file mode 100644
+index 0000000..8698989
+--- /dev/null
++++ b/engines/native/tests/handset_cue.cpp
+@@ -0,0 +1,18 @@
++#include "../native/effects.hpp"
++#include <algorithm>
++#include <cassert>
++#include <cmath>
++int main(){
++    short pickup[1920]{};short hangup[1920]{};int loudest=0;bool different=false;
++    for(int block=0;block<10;++block){
++        handset_cue_block(true,block,pickup);handset_cue_block(false,block,hangup);
++        for(int i=0;i<960;++i){
++            assert(pickup[2*i]==pickup[2*i+1]);assert(hangup[2*i]==hangup[2*i+1]);
++            loudest=std::max({loudest,std::abs(int(pickup[2*i])),std::abs(int(hangup[2*i]))});
++            different|=pickup[2*i]!=hangup[2*i];
++        }
++    }
++    assert(loudest>500 && loudest<10000);assert(different);
++    for(short sample:pickup)assert(sample==0);
++    for(short sample:hangup)assert(sample==0);
 +}
 diff --git a/engines/native/tests/ringback.cpp b/engines/native/tests/ringback.cpp
 new file mode 100644
