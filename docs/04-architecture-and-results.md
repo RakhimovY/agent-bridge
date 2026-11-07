@@ -15,6 +15,7 @@ The `0.3.7` patch selects the Dot when `ALISA_DOT_ID` is present, creates an SDP
 3. After a reversible switch, the user asked a question and heard the Dot reply. A completed call of about one minute appeared in the Dot.
 4. After reboot, the client started automatically and the user heard another reply. The speaker process had no proxy configured.
 5. The close command returned the client to idle; call history was checked in the browser.
+6. With the ringback candidate installed, the user confirmed hearing the call tone followed by a Dot voice reply. An automated call also reached active audio and returned to idle after a close request. Reboot with this ringback version has not been separately verified.
 
 We have not tested all models or firmware versions, session expiration, the physical microphone button, long-term stability, privacy on untrusted networks, automatic factory firmware restoration, or session behavior after server-side API changes.
 
@@ -23,7 +24,7 @@ We have not tested all models or firmware versions, session expiration, the phys
 - `dot_signaling.hpp`: constructs requests and validates call URLs without embedding real IDs.
 - `web_auth.hpp`: required headers, JSON and SDP, `Location` parsing, and empty POST requests for attaching and stopping.
 - `voice_call.hpp`: attaches after WebRTC opens, ends the call, and provides an audio diagnostics mode.
-- `effects.hpp` and `daemon.hpp`: generate a telephone-style ringback while a Dot call connects and stop it before voice playback. The waveform and ARM build were checked; audible behavior and call reliability with this change still require confirmation on the device.
+- `effects.hpp` and `daemon.hpp`: generate a telephone-style ringback while a Dot call connects and stop it before voice playback. The waveform and ARM build were checked; one audible device test succeeded.
 - `build_native.py`: Zig and archiver selection through variables and wrappers for cross-building on Mac.
 - `dot_signaling.cpp`: local request and URL checks using synthetic IDs.
 - `ringback.cpp`: checks the generated tone, stereo output, and silent interval without a speaker.

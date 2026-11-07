@@ -12,6 +12,6 @@ The current route runs an adapted native Alisa Voice client on the speaker. Wi-F
 
 Our tested commands are **"Алиса, открой чат"** ("Alice, open the chat") and **"Алиса, закрой чат"** ("Alice, close the chat"). The Russian text is what was spoken; English is an explanation. Users may choose preferred commands during setup, but a new wake word and bare stop are not verified. Physical mute in this mode is also unverified.
 
-The current patch includes an experimental telephone-style ringback during connection. Its waveform and build were tested, but an audible device test and call reliability verification remain pending.
+The current patch includes an experimental telephone-style ringback during connection. The user confirmed hearing it and a Dot reply on the tested device. Reboot and long-term reliability with this change have not been separately verified.
 
 Based on [Alisa-ChatGPT-voice-assistant](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant) 0.3.7 at commit `2caf3b40635d0bacad1f42b2bb54b326e9c007d8` and the [lite-kit](https://github.com/krevetkqqq/lite-kit) toolkit. See [NOTICE](../../NOTICE.md) for license boundaries.
