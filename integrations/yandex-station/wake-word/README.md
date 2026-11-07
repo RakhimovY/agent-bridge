@@ -8,13 +8,13 @@ Phrases are text, encoded using the selected Russian or English model. Encoding 
 
 ## Prerequisites
 
-Complete the [station and native client setup](../README.md), including SSH, a verified working call, the [stop detector](../stop-detector/README.md), and a private backup. This procedure was exercised on Lite 1 with `YNDX-00025`, `yandexmicro`, and firmware `0.369.1.46.4778262442.20261013.297`. Other devices, firmware, and long-term stability are not verified. Make sure there is enough space for the bundle and rollback. Do not replace the system C library or the working client.
+Complete the [station and native client setup](../README.md), including SSH, a verified working call, the [stop detector](../stop-detector/README.md), and a private backup. The wake implementation was exercised on Lite 1 with `YNDX-00025`, `yandexmicro`, and firmware `0.369.1.46.4778262442.20261013.297`. A fresh build using the downloads below was checked on the setup computer, but the resulting bundle has not yet been tested on a speaker. Other devices, firmware, and long-term stability are not verified. Make sure there is enough space for the bundle and rollback. Do not replace the system C library or the working client.
 
 The example below builds a Russian bundle on macOS or Linux. It requires Python 3.12, Git, curl, tar, Zig 0.14.1, and the isolated ARM runtime built by the [stop detector build](../stop-detector/README.md). Install dependencies into a private virtual environment:
 
 ```sh
 python3.12 -m venv /PRIVATE/PATH/dot-wake-venv
-/PRIVATE/PATH/dot-wake-venv/bin/pip install sentencepiece==0.2.3 onnx==1.23.2 onnxruntime==1.31.1
+/PRIVATE/PATH/dot-wake-venv/bin/pip install sentencepiece==0.2.3 onnx==1.23.2 onnx-ir==1.1.0 onnxruntime==1.31.1
 ```
 
 Download the following upstream archives into a new private working directory. Verify the checksums before extracting. The Russian encoder is converted locally to 4-bit weights; the resulting file is about 16 MB.
@@ -26,7 +26,7 @@ curl -fL -o sherpa.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/downlo
 curl -fL -o ru-fp32.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-ru-vosk-2025-08-16.tar.bz2
 curl -fL -o ru-int8.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-ru-vosk-int8-2025-08-16.tar.bz2
 printf '%s\n' \
-  '31c60fadea7ec662da3c85e75da7b1dce4fe184678a4d6ff961090fe4291f468  sherpa.tar.bz2' \
+  'e23f64c16dec9f60ab2fc527229b8eae3fe8bca8c35d299f8bd1b43e38af3309  sherpa.tar.bz2' \
   'cc2e99ed0c67cae8801170e7b7539b4cac00b716076af86f974bf5b888d9370c  ru-fp32.tar.bz2' \
   '6ba68a01ff3c5445aaf2d61e9b97b026f1149dcc9049d11af3f44f55176341d8  ru-int8.tar.bz2' | shasum -a 256 -c -
 tar -xjf sherpa.tar.bz2
@@ -37,7 +37,7 @@ curl -fL -o include/sherpa-onnx/c-api/c-api.h https://raw.githubusercontent.com/
 printf '%s\n' '4b547326b6888a9d5c4366d0b7090efcb6c59d7099dba2deaf828ec61e8587b4  include/sherpa-onnx/c-api/c-api.h' | shasum -a 256 -c -
 ```
 
-The [Russian model](https://huggingface.co/alphacep/vosk-model-small-streaming-ru) and [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) have their own licenses. See also [NOTICE](../../../NOTICE.md). English model preparation can be used through `bundle.py --en` with the [GigaSpeech model](https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2); the reproducible builder below covers Russian only.
+The [Russian model](https://huggingface.co/alphacep/vosk-model-small-streaming-ru) and [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) have their own licenses. See also [NOTICE](../../../NOTICE.md). The reproducible builder below covers Russian; English preparation is described separately.
 
 ## Build a private bundle
 
@@ -60,6 +60,32 @@ PHRASES
 
 The build directory must not exist. Its `bundle/` contains the ARM listener, runtime, model and private keyword files. It contains no account credentials; nevertheless keep the bundle private. Do not add model files, logs, sessions, private phrases, or device identifiers to Git.
 
+### English phrases
+
+For an English-only bundle, obtain and verify the English model. Then, from the repository root, use the same `DOT_ZIG`, `DOT_WAKE_PYTHON`, `DOT_WAKE_LIBS`, `DOT_WAKE_HEADERS` and `DOT_WAKE_RUNTIME` paths as above:
+
+```sh
+curl -fL -o /PRIVATE/PATH/dot-wake-sources/en.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2
+cd /PRIVATE/PATH/dot-wake-sources
+printf '%s\n' 'f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a  en.tar.bz2' | shasum -a 256 -c -
+tar -xjf en.tar.bz2
+cd /PATH/TO/dot-connect
+export DOT_WAKE_EN=/PRIVATE/PATH/dot-wake-sources/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01
+export DOT_WAKE_LISTENER=/PRIVATE/PATH/dot-wake-listener
+export DOT_WAKE_BUNDLE=/PRIVATE/PATH/new-english-bundle
+"$DOT_ZIG" c++ -target arm-linux-gnueabihf.2.28 -std=c++17 -O2 -s \
+  -Iintegrations/yandex-station/wake-word/include -I"$DOT_WAKE_HEADERS" \
+  integrations/yandex-station/wake-word/listener.cpp -L"$DOT_WAKE_LIBS" \
+  -lsherpa-onnx-c-api -o "$DOT_WAKE_LISTENER"
+"$DOT_WAKE_PYTHON" integrations/yandex-station/wake-word/bundle.py \
+  --en "$DOT_WAKE_EN" --runtime "$DOT_WAKE_RUNTIME" --libs "$DOT_WAKE_LIBS" \
+  --listener "$DOT_WAKE_LISTENER" --out "$DOT_WAKE_BUNDLE" <<'PHRASES'
+["hello friend"]
+PHRASES
+```
+
+The output directory must not exist. To include both languages, first complete the Russian build and add `--ru "$DOT_WAKE_BUILD_DIR/ru"` to the `bundle.py` command with a new output directory. Using two models increases memory use. English and combined bundles have not been confirmed with a live voice on the tested speaker.
+
 ## Install, verify, and roll back
 
 With the speaker idle, make a backup of its current client and boot configuration. Configure `STATION_KEY`, `SSH_PORT` and `SSH_TARGET` as in the [client guide](../../../docs/03-use-and-rollback.md). This creates a new directory and refuses to overwrite an existing one:
@@ -72,6 +98,8 @@ tar -C "$DOT_WAKE_BUILD_DIR/bundle" -cf - . | \
   'umask 077; tar -xf - -C /data/opt/dot-wake'
 ssh -i "$STATION_KEY" -p "$SSH_PORT" "$SSH_TARGET" '/data/opt/dot-wake/service.sh start'
 ```
+
+For an English or combined bundle, replace `"$DOT_WAKE_BUILD_DIR/bundle"` in the transfer command with `"$DOT_WAKE_BUNDLE"`.
 
 The service waits for available memory, launches the listener, and releases it when memory is critically low; it retries when enough memory returns. It does not impose a conversation time limit. Check `service.sh status`, then test your phrase, the Dot reply, bare `stop`, and a later repeat call. A working listener is not proof that your phrase is reliable or that hardware mute works on a different device.
 
