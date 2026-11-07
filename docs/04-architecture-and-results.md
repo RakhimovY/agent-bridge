@@ -12,7 +12,7 @@ The `0.3.7` patch selects the Dot when `ALISA_DOT_ID` is present, creates an SDP
 
 1. Regular ChatGPT voice worked in native mode, including after reboot.
 2. An isolated ARMv7 build without microphone access established a channel and sent 501 and received 469 audio packets over a 10-second test. This checks transport, not a conversation.
-3. After a reversible switch, the user asked a question and heard Wall-e reply. A completed call of about one minute appeared in the Dot.
+3. After a reversible switch, the user asked a question and heard the Dot reply. A completed call of about one minute appeared in the Dot.
 4. After reboot, the client started automatically and the user heard another reply. The speaker process had no proxy configured.
 5. The close command returned the client to idle; call history was checked in the browser.
 

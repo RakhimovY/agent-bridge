@@ -1,4 +1,4 @@
-# Wall-e on Yandex Station Lite 1
+# ChatGPT Dot on Yandex Station Lite 1
 
 An experiment in calling a specific ChatGPT Dot directly from a Yandex Station Lite 1, without a computer running continuously. The speaker uses its own Wi-Fi, microphones, and speaker; a separate WebRTC client runs on the device.
 
@@ -6,7 +6,7 @@ An experiment in calling a specific ChatGPT Dot directly from a Yandex Station L
 "Алиса, открой чат" -> local command -> client on the speaker -> Dot call
 ```
 
-This is an add-on: the stock Alice assistant remains in place to start and stop calls. Tested on November 7, 2026 on one Station Lite 1 (`YNDX-00025`, `yandexmicro`): Wall-e replied by voice, then replied again after a reboot. A completed call appeared in the Dot's history. Other models and firmware versions have not been tested here.
+This is an add-on: the stock Alice assistant remains in place to start and stop calls. Tested on November 7, 2026 on one Station Lite 1 (`YNDX-00025`, `yandexmicro`): the Dot replied by voice, then replied again after a reboot. A completed call appeared in the Dot's history. Other models and firmware versions have not been tested here.
 
 ## Before you start
 
