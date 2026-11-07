@@ -39,4 +39,3 @@ build/
 .DS_Store
 # Generated per-integration build artifacts.
 integrations/yandex-station/stop-detector/.build/
-integrations/yandex-station/wake-word/.build/

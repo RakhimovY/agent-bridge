@@ -14,6 +14,4 @@ Our tested commands are **"Алиса, открой чат"** ("Alice, open the 
 
 The current patch includes a shared sound pool with classic telephone ringback, recorded handset pickup and hangup, gentle and silent presets, and per-event custom audio. The user confirmed the original ringback and recorded handset cues on the tested device. Alternative presets and custom files have offline tests but have not been confirmed by listening. See [call sounds](../../docs/sounds.md). The [optional local stop detector](stop-detector/README.md) was tested with synthetic audio and confirmed by the user with a real microphone.
 
-An [experimental wake phrase detector](wake-word/README.md) can compare private voice examples without training a model. Its live accuracy and integration with real calls remain unverified, and it is not enabled by setup.
-
 Based on [Alisa-ChatGPT-voice-assistant](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant) 0.3.7 at commit `2caf3b40635d0bacad1f42b2bb54b326e9c007d8` and the [lite-kit](https://github.com/krevetkqqq/lite-kit) toolkit. See [NOTICE](../../NOTICE.md) for license boundaries.
