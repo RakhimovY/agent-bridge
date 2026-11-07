@@ -8,6 +8,7 @@
 - Added a shared classic/gentle/silent sound pool, CC0 recordings of a real telephone handset, and custom per-event recordings. The user confirmed the recorded handset cues; alternative presets and overrides have offline tests only.
 - Added optional local English stop detection for the Yandex route. Synthetic recognition and two automatic stop/reopen cycles passed; the user confirmed real-microphone stop and reopening on the tested device. Other integrations are not affected.
 - Added an experimental text-configured wake listener for Station Lite 1, with local mute checks, memory-aware supervision, build and bundle scripts, and Yandex-only offline tests. One owner's real Dot calls and bare stop were confirmed; recognition is imperfect and repeat wake may be delayed.
+- Made the wake service wait for shutdown before returning from `stop`, so an immediate `start` does not silently leave it stopped. Service logs follow the PID file location, keeping isolated tests separate.
 - Retained the original voice client and a reversible setup. Separate wake targets for Dot and ordinary ChatGPT remain unverified.
 
 ## Initial experiment

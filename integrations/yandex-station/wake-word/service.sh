@@ -19,11 +19,14 @@ case "${1:-}" in
   start)
     if owned; then exit 0; fi
     umask 077
-    nohup "$base/service.sh" watch > /tmp/dot-wake-service.log 2>&1 </dev/null &
+    nohup "$base/service.sh" watch > "${pidfile%.pid}.log" 2>&1 </dev/null &
     printf '%s\n' "$!" > "$pidfile"
     ;;
   stop)
-    if owned; then kill "$pid"; fi
+    if owned; then
+      kill "$pid"
+      while owned && kill -0 "$pid" 2>/dev/null; do sleep 0.1; done
+    fi
     ;;
   status)
     if owned && kill -0 "$pid" 2>/dev/null; then echo running; else echo stopped; exit 1; fi
