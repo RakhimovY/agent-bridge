@@ -38,5 +38,6 @@ logs/
 run/
 build/
 .DS_Store
+__pycache__/
 # Generated per-integration build artifacts.
 integrations/yandex-station/stop-detector/.build/
