@@ -37,6 +37,9 @@ jobs:
           /tmp/dot-sounds-test
           python3 "$GITHUB_WORKSPACE/integrations/yandex-station/wake-word/test_prepare.py"
           python3 "$GITHUB_WORKSPACE/integrations/yandex-station/wake-word/test_listener.py"
+          python3 "$GITHUB_WORKSPACE/integrations/yandex-station/wake-word/test_bundle.py"
+          python3 "$GITHUB_WORKSPACE/integrations/yandex-station/wake-word/test_supervisor.py"
+          python3 "$GITHUB_WORKSPACE/integrations/yandex-station/wake-word/test_service.py"
           c++ -std=c++17 /tmp/alisa-voice-test/engines/native/tests/ringback.cpp -o /tmp/ringback-test
           /tmp/ringback-test
           c++ -std=c++17 /tmp/alisa-voice-test/engines/native/tests/handset_cue.cpp -o /tmp/handset-cue-test

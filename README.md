@@ -16,13 +16,13 @@ Today there is one documented route: call a Dot from a **Yandex Station Lite 1**
 
 Clone this repository and follow the integration guide. If your agent supports skills, use [dot-connect-init](.agents/skills/dot-connect-init/SKILL.md): it follows the available route, asks for your desired start and stop phrases, and guides the setup. When there is only one available route, it does not ask you to choose an integration. It asks you to choose once multiple routes are available and your target is unclear.
 
-For the current Yandex route, Alice starts the call. The tested Russian commands and English explanations are in its guide. An optional local English stop detector passed synthetic and automated device tests; the user confirmed real-microphone stop and reopening on the tested device. A new wake word such as "Hey [name]" is not implemented.
+For the Yandex route, the stock Alice command can start a call. An experimental local text-configured wake phrase also opened a Dot call on one Lite 1 without saying Alice; the owner confirmed bare English `stop` and reopening. Setup, accuracy, memory limits and recovery are described in the [wake guide](integrations/yandex-station/wake-word/README.md).
 
 ## Current limitations
 
 - The current connection uses an undocumented ChatGPT web interface and a sensitive stored web session, not an official Dot SDK or API key. Interface behavior, session lifetime, and subscription limits may change.
 - The current device path requires root and SSH. Rooting or downgrading may erase settings or make the speaker unusable. Our test device has OTA updates disabled and consequently receives no automatic security updates.
-- Hardware mute in this mode, other models, long-term stability, and factory recovery have not been verified. The successful root transition has not been reconstructed in full.
+- The physical mute input was checked on one device, but live voice suppression while muted, other models, long-term stability, and factory recovery have not been verified. The successful root transition has not been reconstructed in full.
 - The public project is an experimental integration patch and guides, not a universal installer or a finished cross-platform library.
 - Do not publish account sessions, tokens, private keys, real Dot IDs, device dumps, firmware, Wi-Fi credentials, or logs. See [security](docs/05-security.md).
 

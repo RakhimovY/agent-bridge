@@ -28,6 +28,24 @@ class KeywordPreparation(unittest.TestCase):
         result = prepare.compile_keywords(['Привет', 'hello'], models)
         self.assertEqual(result, {'ru': ['▁WORD @K0'], 'en': ['▁WORD @K1']})
 
+    def test_distinct_phrases_select_distinct_targets(self):
+        models = {'ru': Model('привет'), 'en': Model('HELLO')}
+        choices = [{'phrase': 'Привет', 'target': 'dot'}, {'phrase': 'hello', 'target': 'chat'}]
+        with tempfile.TemporaryDirectory() as root:
+            out = pathlib.Path(root)
+            prepare.write_keywords(choices, models, out)
+            self.assertEqual((out / 'wake-keywords-ru.txt').read_text(), '▁WORD @K0\n')
+            self.assertEqual((out / 'wake-keywords-en.txt').read_text(), '▁WORD @K1\n')
+            self.assertEqual((out / 'wake-actions.txt').read_text(), 'K0 dot\nK1 chat\n')
+            self.assertEqual((out / 'wake-actions.txt').stat().st_mode & 0o777, 0o600)
+
+    def test_unknown_target_is_rejected_before_writing(self):
+        choices = [{'phrase': 'hello', 'target': 'unknown'}]
+        with tempfile.TemporaryDirectory() as root:
+            with self.assertRaises(ValueError):
+                prepare.write_keywords(choices, {'en': Model('HELLO')}, pathlib.Path(root))
+            self.assertEqual(list(pathlib.Path(root).iterdir()), [])
+
     def test_output_is_private_and_replaces_stale_phrases(self):
         models = {'ru': Model('привет'), 'en': Model('HELLO')}
         with tempfile.TemporaryDirectory() as root:

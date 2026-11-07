@@ -2,7 +2,7 @@
 
 ## Architecture
 
-The stock Alice service receives the activation phrase and passes a local command to the native client. The client runs on the speaker, exchanges audio with OpenAI over WebRTC, and uses a saved ChatGPT web session. An account and internet access are required; a laptop is not used as a proxy.
+The stock Alice service can pass a local command to the native client. An experimental separate wake listener can instead detect a configured phrase locally and hand the microphone to that same client. The client runs on the speaker, exchanges audio with OpenAI over WebRTC, and uses a saved ChatGPT web session. An account and internet access are required; a laptop is not used as a proxy.
 
 The `0.3.7` patch selects the Dot when `ALISA_DOT_ID` is present, creates an SDP offer, sends it to the Dot call web interface, applies the SDP answer, opens the data channel, and then attaches the call. The order matters: attaching before the connection was established returned HTTP 502. The client sends a stop request when the call ends. Without the variable, the existing primary ChatGPT path remains in use.
 
@@ -18,8 +18,9 @@ The `0.3.7` patch selects the Dot when `ALISA_DOT_ID` is present, creates an SDP
 6. With the ringback candidate installed, the user confirmed hearing the call tone followed by a Dot voice reply. An automated call also reached active audio and returned to idle after a close request. Reboot with this ringback version has not been separately verified.
 7. The optional local stop detector recognized two synthetic English "stop" voices and did not trigger on two synthetic ordinary phrases. Two automatic call/stop/reopen cycles succeeded. These injected audio into the test device's capture path; the user confirmed real-microphone stop and reopening on the tested device.
 8. The user confirmed that the CC0 recordings of a real telephone handset sounded good on the tested speaker. Alternative presets and per-event overrides were tested offline only.
+9. A text-configured local wake phrase opened the Dot without Alice, and the owner confirmed an unlimited call, bare stop, reopening and another call after reboot. The physical mute input changed with the button; muted-voice behavior has automated tests but remains unverified live. Recognition can miss phrases or take several seconds after a call.
 
-We have not tested all models or firmware versions, session expiration, the physical microphone button, long-term stability, privacy on untrusted networks, automatic factory firmware restoration, or session behavior after server-side API changes.
+We have not tested all models or firmware versions, session expiration, live muted-voice suppression, long-term stability, privacy on untrusted networks, automatic factory firmware restoration, or session behavior after server-side API changes.
 
 ## Adaptation changes
 
