@@ -1,0 +1,242 @@
+diff --git a/engines/native/native/dot_signaling.hpp b/engines/native/native/dot_signaling.hpp
+new file mode 100644
+index 0000000..375933d
+--- /dev/null
++++ b/engines/native/native/dot_signaling.hpp
+@@ -0,0 +1,25 @@
++#pragma once
++#include <nlohmann/json.hpp>
++#include <string>
++#include <cctype>
++
++struct DotOffer {
++    std::string url;
++    std::string body;
++};
++
++inline DotOffer dot_offer(const std::string &dot, const std::string &sdp) {
++    return {"https://chatgpt.com/backend-api/tbo/" + dot + "/voice/calls",
++            nlohmann::json{{"instant_connect", true}, {"sdp", sdp}}.dump()};
++}
++
++inline std::string dot_call_url(const std::string &dot, const std::string &location) {
++    const std::string root = "https://chatgpt.com/backend-api/tbo/" + dot + "/voice/calls/";
++    const std::string rtc_prefix = "/v1/realtime/calls/";
++    const std::string url = location.rfind(rtc_prefix, 0) == 0 ? root + location.substr(rtc_prefix.size()) :
++        location.rfind("/", 0) == 0 ? "https://chatgpt.com" + location : location;
++    if (url.rfind(root, 0) != 0 || url.size() == root.size()) return {};
++    for (char c : url.substr(root.size()))
++        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-') return {};
++    return url;
++}
+diff --git a/engines/native/native/voice_call.hpp b/engines/native/native/voice_call.hpp
+index 6e78d3d..1081e93 100644
+--- a/engines/native/native/voice_call.hpp
++++ b/engines/native/native/voice_call.hpp
+@@ -56,6 +56,8 @@ class VoiceCall:public std::enable_shared_from_this<VoiceCall> {
+     std::map<std::string,unsigned int> event_types;
+     std::string caption_role,probe_caption;
+     std::string server_error;
++    json dot_auth;
++    std::string dot_url;
+ #ifdef ALISA_USE_NETEQ
+     RtpPlayout playout{true}; // Bounded header/timing telemetry, no audio queue.
+     std::unique_ptr<AlisaNetEq,decltype(&alisa_neteq_destroy)> neteq{nullptr,alisa_neteq_destroy};
+@@ -331,7 +333,8 @@ public:
+             {"conversation_mode",{{"kind","primary_assistant"}}},{"enable_message_streaming",true}};
+         if(!options.conversation_id.empty())session["conversation_id"]=options.conversation_id;
+         if(!options.parent_message_id.empty())session["parent_message_id"]=options.parent_message_id;
+-        auto answer=exchange_sdp(auth,std::string(*pc->localDescription()),session,&stop_requested);
++        dot_auth=auth;
++        auto answer=exchange_sdp(auth,std::string(*pc->localDescription()),session,&stop_requested,&dot_url);
+         pc->setRemoteDescription(rtc::Description(answer,"answer"));
+         {
+             std::unique_lock<std::mutex> lock(mutex);
+@@ -339,6 +342,10 @@ public:
+         }
+         if(failed||stop_requested||stopping){std::lock_guard<std::mutex> lock(mutex);
+             throw std::runtime_error(server_error.empty()?"call_cancelled":server_error);}
++        if(!dot_url.empty()){
++            auto attach=web_request(dot_url+"/attach",auth,{}, {},&stop_requested,true);
++            if(attach.status!=200)throw std::runtime_error("dot_attach_"+std::to_string(attach.status));
++        }
+         int error=0;
+         std::unique_ptr<OpusEncoder,decltype(&opus_encoder_destroy)> encoder(
+             opus_encoder_create(16000,1,OPUS_APPLICATION_VOIP,&error),opus_encoder_destroy);
+@@ -416,7 +423,7 @@ public:
+                 rtp_config->timestamp+=960;
+                 track->send(reinterpret_cast<const rtc::byte *>(encoded),static_cast<size_t>(size));++sent;
+             }
+-            if(options.probe&&!asked&&Clock::now()-start>std::chrono::milliseconds(500)&&dc->isOpen()){
++            if(options.probe&&!getenv("ALISA_DOT_AUDIO_ONLY")&&!asked&&Clock::now()-start>std::chrono::milliseconds(500)&&dc->isOpen()){
+                 relay_text(options.synthetic_text);asked=true;
+             }
+             short samples[960*2]{};
+@@ -486,6 +493,7 @@ public:
+             unsigned int write_us=std::chrono::duration_cast<std::chrono::microseconds>(Clock::now()-write_start).count();
+             max_write_us=std::max(max_write_us.load(),write_us);
+             if(options.probe){
++                if(getenv("ALISA_DOT_AUDIO_ONLY")&&Clock::now()-start>std::chrono::seconds(10))break;
+                 // Wait beyond the complete reply so the server can persist the
+                 // final parent, rather than closing on the first audio chunk.
+                 if(audible_blocks>8&&assistant_seen&&Clock::now()-start>std::chrono::seconds(5)&&
+@@ -501,5 +509,5 @@ public:
+             if(options.probe)result["synthetic_caption"]=probe_caption;}
+         stop();pc->close();return result;
+     }
+-    ~VoiceCall(){stop();if(pc)pc->close();}
++    ~VoiceCall(){stop();if(pc)pc->close();if(!dot_url.empty())try{web_request(dot_url+"/stop",dot_auth,{}, {},nullptr,true);}catch(...){} }
+ };
+diff --git a/engines/native/native/web_auth.hpp b/engines/native/native/web_auth.hpp
+index f58717c..b9a3857 100644
+--- a/engines/native/native/web_auth.hpp
++++ b/engines/native/native/web_auth.hpp
+@@ -1,12 +1,14 @@
+ #pragma once
+ #include "common.hpp"
++#include "dot_signaling.hpp"
+ #include <curl/curl.h>
+ #include <sstream>
++#include <iostream>
+ #include <thread>
+ #include <openssl/evp.h>
+ #include <vector>
+ 
+-struct HttpReply {long status=0;std::string body;json cookies=json::object();};
++struct HttpReply {long status=0;std::string body;json cookies=json::object();std::vector<std::string> header_names;std::string location;};
+ inline std::string rejection_kind(const HttpReply &reply){
+     if(reply.body.find("<html")!=std::string::npos||reply.body.find("<!DOCTYPE")!=std::string::npos)return "challenge";
+     return "upstream";
+@@ -38,13 +40,22 @@ inline size_t http_body(char *p,size_t size,size_t count,void *opaque) {
+ }
+ inline HttpReply web_request(const std::string &url,const json &auth,
+                             const std::string &body={},const std::string &content_type={},
+-                            std::atomic<bool> *cancel=nullptr) {
++                            std::atomic<bool> *cancel=nullptr,bool empty_post=false) {
+     if(url.rfind("https://chatgpt.com/",0)!=0)throw std::runtime_error("invalid_upstream");
+     CURL *curl=curl_easy_init();if(!curl)throw std::runtime_error("http_init_failed");
+     HttpReply reply;curl_slist *headers=nullptr;
+     auto header=[&](const std::string &value){headers=curl_slist_append(headers,value.c_str());};
+     header("Origin: https://chatgpt.com");header("Referer: https://chatgpt.com/");
+     header("OAI-Language: ru-RU");header("Accept: */*");
++    if(url.find("/backend-api/tbo/")!=std::string::npos){
++        const char *dot=getenv("ALISA_DOT_ID");
++        if(dot){
++            std::string id(dot);
++            header("Chatgpt-Account-Id: "+id.substr(0,id.find('~')));
++            header("Originator: Codex Browser");
++            header("X-Openai-Web-Frontend: codex_webview");
++        }
++    }
+     if(auth.contains("access_token"))header("Authorization: Bearer "+auth["access_token"].get<std::string>());
+     std::string cookies;
+     const json cookie_values=auth.value("cookies",json::object());
+@@ -66,6 +77,16 @@ inline HttpReply web_request(const std::string &url,const json &auth,
+         curl_easy_setopt(curl,CURLOPT_CAINFO,"/system/vendor/quasar/certs/ca-certificates.crt");
+     curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,http_body);
+     curl_easy_setopt(curl,CURLOPT_WRITEDATA,&reply.body);
++    curl_easy_setopt(curl,CURLOPT_HEADERDATA,&reply);
++    curl_easy_setopt(curl,CURLOPT_HEADERFUNCTION,+[](char *p,size_t size,size_t count,void *opaque)->size_t {
++        size_t n=size*count;std::string line(p,n);auto colon=line.find(':');auto *reply=static_cast<HttpReply *>(opaque);
++        if(colon!=std::string::npos){
++            auto name=line.substr(0,colon);reply->header_names.push_back(name);
++            std::transform(name.begin(),name.end(),name.begin(),[](unsigned char c){return std::tolower(c);});
++            if(name=="location") {auto value=line.substr(colon+1);auto first=value.find_first_not_of(" \t\r\n");auto last=value.find_last_not_of(" \t\r\n");if(first!=std::string::npos)reply->location=value.substr(first,last-first+1);}
++        }
++        return n;
++    });
+     curl_easy_setopt(curl,CURLOPT_NOPROGRESS,0L);
+     curl_easy_setopt(curl,CURLOPT_XFERINFODATA,cancel);
+     curl_easy_setopt(curl,CURLOPT_XFERINFOFUNCTION,+[](void *p,curl_off_t,curl_off_t,curl_off_t,curl_off_t){
+@@ -73,7 +94,7 @@ inline HttpReply web_request(const std::string &url,const json &auth,
+     if(!body.empty()){
+         curl_easy_setopt(curl,CURLOPT_POSTFIELDS,body.data());
+         curl_easy_setopt(curl,CURLOPT_POSTFIELDSIZE_LARGE,static_cast<curl_off_t>(body.size()));
+-    }
++    }else if(empty_post){curl_easy_setopt(curl,CURLOPT_POST,1L);curl_easy_setopt(curl,CURLOPT_POSTFIELDSIZE,0L);}
+     auto result=curl_easy_perform(curl);
+     curl_easy_getinfo(curl,CURLINFO_RESPONSE_CODE,&reply.status);
+     curl_slist *list=nullptr;curl_easy_getinfo(curl,CURLINFO_COOKIELIST,&list);
+@@ -122,7 +143,20 @@ inline json ensure_web_auth(const fs::path &file,std::atomic<bool> *cancel=nullp
+     auto auth=read_json(file);return web_auth_current(auth)?auth:refresh_web_auth(file,cancel);
+ }
+ 
+-inline std::string exchange_sdp(const json &auth,const std::string &offer,const json &session,std::atomic<bool> *cancel=nullptr) {
++inline std::string exchange_sdp(const json &auth,const std::string &offer,const json &session,std::atomic<bool> *cancel=nullptr,std::string *dot_call=nullptr) {
++    const char *dot=getenv("ALISA_DOT_ID");
++    if(dot && *dot){
++        auto request=dot_offer(dot,offer);
++        auto reply=web_request(request.url,auth,request.body,"application/json",cancel);
++        if(getenv("ALISA_DOT_DIAG")){std::cerr<<"dot_response_headers:";for(const auto &name:reply.header_names)std::cerr<<" "<<name;std::cerr<<"\n";}
++        if((reply.status!=200&&reply.status!=201)||reply.body.rfind("v=0",0)!=0)
++            throw std::runtime_error("voice_signaling_"+rejection_kind(reply)+"_"+std::to_string(reply.status));
++        auto call=dot_call_url(dot,reply.location);
++        if(getenv("ALISA_DOT_DIAG")){std::cerr<<"location_is_relative="<<(reply.location.rfind("/",0)==0)<<" location_has_realtime="<<(reply.location.find("realtime")!=std::string::npos)<<" location_has_voice_calls="<<(reply.location.find("voice/calls")!=std::string::npos)<<" location_has_rtc="<<(reply.location.find("rtc_")!=std::string::npos)<<"\n";}
++        if(call.empty())throw std::runtime_error("dot_call_location_invalid");
++        if(dot_call)*dot_call=call;
++        return reply.body;
++    }
+     const std::string boundary="----AlisaStandalone"+random_id();std::string body;
+     for(auto &[name,value]:std::vector<std::pair<std::string,std::string>>{{"sdp",offer},{"session",session.dump()}})
+         body+="--"+boundary+"\r\nContent-Disposition: form-data; name=\""+name+"\"\r\n\r\n"+value+"\r\n";
+diff --git a/engines/native/scripts/build_native.py b/engines/native/scripts/build_native.py
+index 54f60b3..25804cb 100644
+--- a/engines/native/scripts/build_native.py
++++ b/engines/native/scripts/build_native.py
+@@ -23,7 +23,12 @@ def main():
+     args=parser.parse_args()
+     BUILD.mkdir(parents=True,exist_ok=True)
+     PREFIX.mkdir(parents=True,exist_ok=True)
+-    zig=ROOT/'toolchains/zig-x86_64-linux-0.14.1/zig'
++    zig=Path(os.environ.get('DOT_ZIG', str(ROOT/'toolchains/zig-x86_64-linux-0.14.1/zig')))
++    ar=BUILD/'zig-ar'
++    ranlib=BUILD/'zig-ranlib'
++    for path,command in [(ar,'ar'),(ranlib,'ranlib')]:
++        path.write_text('#!/bin/sh\nexec '+shlex.quote(str(zig))+' '+command+' "$@"\n')
++        path.chmod(0o700)
+     for name,kind in [('cc','cc'),('cxx','c++')]:
+         path=BUILD/f'arm-{name}'
+         path.write_text('#!/bin/sh\nexec '+shlex.quote(str(zig))+' '+kind+
+@@ -34,8 +39,8 @@ def main():
+ set(CMAKE_SYSTEM_PROCESSOR arm)
+ set(CMAKE_C_COMPILER "{BUILD}/arm-cc")
+ set(CMAKE_CXX_COMPILER "{BUILD}/arm-cxx")
+-set(CMAKE_AR /usr/bin/llvm-ar)
+-set(CMAKE_RANLIB /usr/bin/llvm-ranlib)
++set(CMAKE_AR "{ar}")
++set(CMAKE_RANLIB "{ranlib}")
+ set(CMAKE_C_FLAGS_RELEASE "-Os -DNDEBUG -ffunction-sections -fdata-sections")
+ set(CMAKE_CXX_FLAGS_RELEASE "-Os -DNDEBUG -ffunction-sections -fdata-sections")
+ set(CMAKE_FIND_ROOT_PATH "{PREFIX}")
+@@ -45,7 +50,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
+ ''')
+     env={**os.environ,'CC':str(BUILD/'arm-cc'),'CXX':str(BUILD/'arm-cxx'),
+-         'AR':'/usr/bin/llvm-ar','RANLIB':'/usr/bin/llvm-ranlib',
++         'AR':str(ar),'RANLIB':str(ranlib),
+          'PKG_CONFIG_LIBDIR':str(PREFIX/'lib/pkgconfig')}
+     openssl=BUILD/'openssl'
+     openssl.mkdir(exist_ok=True)
+diff --git a/engines/native/tests/dot_signaling.cpp b/engines/native/tests/dot_signaling.cpp
+new file mode 100644
+index 0000000..e75dce9
+--- /dev/null
++++ b/engines/native/tests/dot_signaling.cpp
+@@ -0,0 +1,17 @@
++#include "../native/dot_signaling.hpp"
++#include <nlohmann/json.hpp>
++#include <cassert>
++
++int main() {
++    const std::string dot = "account-id~dot-id";
++    const std::string sdp = "v=0\r\na=example:quoted\"value\r\n";
++    auto request = dot_offer(dot, sdp);
++    assert(request.url == "https://chatgpt.com/backend-api/tbo/" + dot + "/voice/calls");
++    const auto body = nlohmann::json::parse(request.body);
++    assert(body.at("instant_connect") == true);
++    assert(body.at("sdp") == sdp);
++    assert(body.size() == 2);
++    assert(dot_call_url(dot, "/backend-api/tbo/" + dot + "/voice/calls/rtc_test") == request.url + "/rtc_test");
++    assert(dot_call_url(dot, "/v1/realtime/calls/rtc_test") == request.url + "/rtc_test");
++    assert(dot_call_url(dot, "https://evil.example/voice/calls/rtc_test").empty());
++}
