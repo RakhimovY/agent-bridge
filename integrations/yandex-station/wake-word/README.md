@@ -64,6 +64,8 @@ In an isolated Mac test using the freshly built Russian model, the listener and 
 
 In a separate isolated test of the same listener at its default threshold, six short recordings of human Russian speech containing configured phrases produced the correct phrase aliases; six recordings without those phrases produced no matches. Phrase presence was labeled by a separate automatic transcription, not manual review. This small sample does not establish reliability for arbitrary phrases, accents, continuous speech or device conditions.
 
+For the owner's privately configured phrase, a separate offline test detected three synthesized variants and produced no matches on 32 other human-speech clips. The phrase and audio are not published. This is a limited sample and does not measure all pronunciations or environments.
+
 ### English phrases
 
 For an English-only bundle, obtain and verify the English model. Then, from the repository root, use the same `DOT_ZIG`, `DOT_WAKE_PYTHON`, `DOT_WAKE_LIBS`, `DOT_WAKE_HEADERS` and `DOT_WAKE_RUNTIME` paths as above:
