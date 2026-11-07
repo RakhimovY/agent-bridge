@@ -8,7 +8,7 @@ Phrases are text, encoded using the selected Russian or English model. Encoding 
 
 ## Prerequisites
 
-Complete the [station and native client setup](../README.md), including SSH, a verified working call, the [stop detector](../stop-detector/README.md), and a private backup. The wake implementation was exercised on Lite 1 with `YNDX-00025`, `yandexmicro`, and firmware `0.369.1.46.4778262442.20261013.297`. A fresh build using the downloads below was checked on the setup computer, but the resulting bundle has not yet been tested on a speaker. Other devices, firmware, and long-term stability are not verified. Make sure there is enough space for the bundle and rollback. Do not replace the system C library or the working client.
+Complete the [station and native client setup](../README.md), including SSH, a verified working call, the [stop detector](../stop-detector/README.md), and a private backup. The wake implementation was exercised on Lite 1 with `YNDX-00025`, `yandexmicro`, and firmware `0.369.1.46.4778262442.20261013.297`. A fresh build using the downloads below was checked on the setup computer, and its ARM listener and library loaded on the speaker in an isolated test without a model, microphone or call. Model inference with that freshly built bundle has not yet been checked on the speaker. Other devices, firmware, and long-term stability are not verified. Make sure there is enough space for the bundle and rollback. Do not replace the system C library or the working client.
 
 The example below builds a Russian bundle on macOS or Linux. It requires Python 3.12, Git, curl, tar, Zig 0.14.1, and the isolated ARM runtime built by the [stop detector build](../stop-detector/README.md). Install dependencies into a private virtual environment:
 
