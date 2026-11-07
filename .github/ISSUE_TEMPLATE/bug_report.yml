@@ -1,0 +1,27 @@
+name: Bug report
+description: Report a reproducible problem with an existing integration
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Never include credentials, private Dot URLs, device IDs, raw logs, or network captures. Use private security reporting for sensitive issues.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce and actual results
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Integration, device, firmware, and version
+  - type: textarea
+    id: recovery
+    attributes:
+      label: Recovery attempted and other non-sensitive context

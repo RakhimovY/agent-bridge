@@ -23,5 +23,7 @@ We have not tested all models or firmware versions, session expiration, the phys
 - `dot_signaling.hpp`: constructs requests and validates call URLs without embedding real IDs.
 - `web_auth.hpp`: required headers, JSON and SDP, `Location` parsing, and empty POST requests for attaching and stopping.
 - `voice_call.hpp`: attaches after WebRTC opens, ends the call, and provides an audio diagnostics mode.
+- `effects.hpp` and `daemon.hpp`: generate a telephone-style ringback while a Dot call connects and stop it before voice playback. The waveform and ARM build were checked; audible behavior and call reliability with this change still require confirmation on the device.
 - `build_native.py`: Zig and archiver selection through variables and wrappers for cross-building on Mac.
 - `dot_signaling.cpp`: local request and URL checks using synthetic IDs.
+- `ringback.cpp`: checks the generated tone, stereo output, and silent interval without a speaker.

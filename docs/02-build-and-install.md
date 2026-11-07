@@ -13,8 +13,8 @@ git clone https://github.com/rison1337/Alisa-ChatGPT-voice-assistant.git alisa-v
 cd alisa-voice
 git checkout 2caf3b40635d0bacad1f42b2bb54b326e9c007d8
 # Use the path to your local copy of this repository:
-git apply --check /PATH/TO/yandex-station-dot/patches/alisa-voice-0.3.7-dot.patch
-git apply /PATH/TO/yandex-station-dot/patches/alisa-voice-0.3.7-dot.patch
+git apply --check /PATH/TO/dot-connect/patches/alisa-voice-0.3.7-dot.patch
+git apply /PATH/TO/dot-connect/patches/alisa-voice-0.3.7-dot.patch
 ```
 
 Download `alisa-voice-sources.tar.gz` and its `.sha256` file from the [upstream v0.2.0 release](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant/releases/tag/v0.2.0), verify the checksum, and extract only the `engines/native/research/upstream` dependencies. For dependency history and upstream instructions, see [development.md](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant/blob/2caf3b40635d0bacad1f42b2bb54b326e9c007d8/docs/development.md). Do not extract an archive over someone else's project without inspecting it first.

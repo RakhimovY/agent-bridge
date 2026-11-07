@@ -1,0 +1,23 @@
+name: Integration proposal
+description: Propose connecting a Dot to another device or service
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private Dot URLs, device IDs, raw logs, or network captures. See docs/adding-integrations.md for the contribution path.
+  - type: input
+    id: target
+    attributes:
+      label: Device or service
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Desired behavior and why it is useful
+    validations:
+      required: true
+  - type: textarea
+    id: path
+    attributes:
+      label: Proposed approach, dependencies, known limitations, and open questions

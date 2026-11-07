@@ -1,44 +1,35 @@
-# ChatGPT Dot on Yandex Station Lite 1
+# Dot Connect
 
-An experiment in calling a specific ChatGPT Dot directly from a Yandex Station Lite 1, without a computer running continuously. The speaker uses its own Wi-Fi, microphones, and speaker; a separate WebRTC client runs on the device.
+Connect a ChatGPT Dot to devices and services. Dot Connect is a community project for documenting, testing, and improving those connections.
 
-```text
-"Алиса, открой чат" -> local command -> client on the speaker -> Dot call
-```
+Today there is one documented route: call a Dot from a **Yandex Station Lite 1**, using the speaker itself rather than a continuously running computer. A user heard a voice reply before and after reboot. Other devices and services are future integrations, not supported features yet.
 
-This is an add-on: the stock Alice assistant remains in place to start and stop calls. Tested on November 7, 2026 on one Station Lite 1 (`YNDX-00025`, `yandexmicro`): the Dot replied by voice, then replied again after a reboot. A completed call appeared in the Dot's history. Other models and firmware versions have not been tested here.
+## Choose an integration
 
-## Before you start
+| Integration | Status | Start here |
+| --- | --- | --- |
+| Yandex Station | Experimental; tested on one Lite 1 and firmware | [Yandex Station guide](integrations/yandex-station/README.md) |
 
-- You need your own rooted speaker with SSH, a ChatGPT account with access to a Dot, and a home network with internet access.
-- Rooting and downgrading firmware can erase settings or render the device unusable. Firmware updates are disabled on our speaker, so security updates are not installed either.
-- This is a research integration with an undocumented OpenAI web interface, not an official SDK. The interface, authentication, and subscription limits can change. This implementation does not use an API key; a sensitive web session is stored on the speaker.
-- The physical microphone mute has not been verified in this experimental mode on our device. Do not assume the hardware button works.
-- Never publish real Dot IDs, IP addresses, cookies, tokens, SSH keys, dumps, firmware, or logs. Use a trusted home network segment. Do not expose SSH or ADB to the internet.
+[Integration index](integrations/README.md) | [Add an integration](docs/adding-integrations.md) | [Contribute](CONTRIBUTING.md) | [Changelog](CHANGELOG.md)
 
-## Guide
+## Get started
 
-1. [Prepare the speaker, obtain root, and restore the network](docs/01-station.md).
-2. [Install the voice client and build the adaptation](docs/02-build-and-install.md).
-3. [Connect your Dot, test it, and roll back](docs/03-use-and-rollback.md).
-4. [Architecture and test results](docs/04-architecture-and-results.md).
-5. [Protect secrets and publications](docs/05-security.md).
+Clone this repository and follow the integration guide. If your agent supports skills, use [dot-connect-init](.agents/skills/dot-connect-init/SKILL.md): it follows the available route, asks for your desired start and stop phrases, and guides the setup. When there is only one available route, it does not ask you to choose an integration. It asks you to choose once multiple routes are available and your target is unclear.
 
-The code changes are in [the patch](patches/alisa-voice-0.3.7-dot.patch). It targets a specific upstream client commit, not an arbitrary latest version. This is an engineering experiment, not a universal installer: after applying the patch and building, you must install the existing client and manually replace its binary. Read the full guide before changing your speaker.
+For the current Yandex route, Alice still starts and stops the call. The tested Russian commands and English explanations are in its guide. A new wake word such as "Hey [name]" or a bare "stop" needs a separate implementation and has not been verified.
 
-## Voice commands
+## Current limitations
 
-The commands below are the exact Russian phrases configured on our speaker. Say them in Russian; the English text is an explanation, not a tested command.
+- The current connection uses an undocumented ChatGPT web interface and a sensitive stored web session, not an official Dot SDK or API key. Interface behavior, session lifetime, and subscription limits may change.
+- The current device path requires root and SSH. Rooting or downgrading may erase settings or make the speaker unusable. Our test device has OTA updates disabled and consequently receives no automatic security updates.
+- Hardware mute in this mode, other models, long-term stability, and factory recovery have not been verified. The successful root transition has not been reconstructed in full.
+- The public project is an experimental integration patch and guides, not a universal installer or a finished cross-platform library.
+- Do not publish account sessions, tokens, private keys, real Dot IDs, device dumps, firmware, Wi-Fi credentials, or logs. See [security](docs/05-security.md).
 
-- Start: **"Алиса, открой чат"** ("Alice, open the chat"), then speak to the Dot.
-- End: **"Алиса, закрой чат"** ("Alice, close the chat").
+## Community
 
-If the browser session expires, restore the login according to the upstream client's documentation. Do not send cookie or token values to chats, issues, or logs.
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and [the integration guide](docs/adding-integrations.md) for the path from proposal to tested support. Be considerate: [Code of Conduct](CODE_OF_CONDUCT.md). Report security concerns using [SECURITY.md](SECURITY.md).
 
-## Credits and upstream projects
+Original Dot Connect material is offered under the [MIT License](LICENSE). The Yandex Station patch includes context from the independently authored upstream client, whose GitHub project did not declare a license when checked. The MIT license here does not grant rights to that upstream material; see [NOTICE](NOTICE.md) and the upstream project before redistribution.
 
-- [Alisa-ChatGPT-voice-assistant](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant): the client this adaptation builds on, at commit `2caf3b40635d0bacad1f42b2bb54b326e9c007d8`.
-- [lite-kit](https://github.com/krevetkqqq/lite-kit): a setup toolkit for compatible devices. Our results concern the Lite 1 and the firmware specified here; they do not verify every claim made by the toolkit.
-- The patch includes context from upstream files. GitHub did not show an upstream project license when checked; respect the authors' rights and the dependency licenses listed upstream.
-
-This project is not officially affiliated with Yandex or OpenAI.
+Dot Connect is not officially affiliated with Yandex or OpenAI.
