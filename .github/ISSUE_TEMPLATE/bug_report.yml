@@ -4,7 +4,7 @@ labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: Never include credentials, private Dot URLs, device IDs, raw logs, or network captures. Use private security reporting for sensitive issues.
+      value: Never include credentials, private account URLs, device IDs, raw logs, or network captures. Use private security reporting for sensitive issues.
   - type: textarea
     id: problem
     attributes:
@@ -20,7 +20,7 @@ body:
   - type: input
     id: versions
     attributes:
-      label: Integration, device, firmware, and version
+      label: Agent, integration, device or service, and versions
   - type: textarea
     id: recovery
     attributes:

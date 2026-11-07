@@ -1,6 +1,6 @@
 # Call sounds
 
-Dot Connect defines a shared sound vocabulary for three events: **ringback** while connecting, **connected** when the call is picked up, and **ended** when it is hung up. Each integration declares which of these it implements. Currently only the Yandex Station route implements the pool; a future integration must add and test support rather than assuming it exists.
+Agent Bridge defines a shared sound vocabulary for three events: **ringback** while connecting, **connected** when the call is picked up, and **ended** when it is hung up. Each integration declares which of these it implements. Currently only the Yandex Station route implements the pool; a future integration must add and test support rather than assuming it exists.
 
 | Preset | Ringback | Connected / ended |
 | --- | --- | --- |

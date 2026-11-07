@@ -1,23 +1,27 @@
 # Adding an integration
 
-Dot Connect is currently a guide and patch for one route. The lifecycle below is a contribution contract, not an existing adapter API. Build only what a real second integration requires; do not mark an idea available before it works.
+An integration connects a specific AI agent or agent service to a specific device or service. Agent Bridge currently provides one experimental route. This guide is a contribution workflow, not a promise of a generic adapter API or existing support for every combination.
 
-## 1. Propose the route
+## 1. Propose the connection
 
-Open an integration proposal describing the device or service, owner-controlled access, intended Dot interaction, required additional hardware, operating system and firmware, network path, expected cost, and the steps a user must perform. State whether the route is voice, text, or both. Distinguish official APIs from undocumented interfaces. Name what is unknown and any terms or license restrictions. Do not include real credentials, private URLs, account IDs, logs, or device dumps.
+Open an integration proposal naming both ends, the intended interaction, and who controls the device and account. Include the operating system or firmware, connection and network path, extra hardware, ongoing runtime requirements, expected costs, and whether it uses an official API or another interface. Distinguish facts from assumptions and identify open questions, terms, and licenses. Never include credentials, private URLs, account IDs, raw logs, or device dumps.
 
-## 2. Define capabilities and recovery
+## 2. Design a reversible route
 
-Describe the setup prerequisites and the connection lifecycle: prepare, authenticate, initiate, exchange input and output, stop, and clean up. Specify which component runs continuously, how wake/start/stop work, what happens when authentication or connectivity fails, and whether the user can use their existing subscription. Preserve pre-existing settings and provide a concrete rollback. Explain microphone, wake-word, privacy, update, network, and credential implications where relevant.
+Explain setup, authentication, initiation, input and output, stopping, reconnecting, and recovery. Identify what runs on the target and whether another device or service must remain online. Describe access to microphones or other sensors when applicable, account storage, connectivity, updates, costs, and a rollback that preserves existing settings. Describe only capabilities the proposed agent and target actually provide.
 
-## 3. Implement and document
+## 3. Add the route
 
-Place integration-specific code and its guide under `integrations/<slug>/`, keeping shared behavior small and based on actual common needs. A guide should include supported devices and versions, dependencies, ordered setup, how to choose the target Dot, the exact tested start/stop commands, safe configuration, verification, troubleshooting, rollback, source attribution, and known limits. Use placeholders for private values. Do not copy another project's source, binary, firmware, or model unless its license permits the use and attribution is preserved.
+Put a new route under `integrations/<route-slug>/` with a `README.md` based on the [guide template](integration-template.md). Choose a slug that makes the combination clear, such as `watch-agent-example`. The existing Yandex route keeps its current location; don't move working integrations just to fit an example.
+
+Place route-specific scripts, configuration, assets and tests within the route when practical. Keep credentials and generated local artifacts outside Git. Reuse shared material only when its existing contract fits; do not add a speculative framework or require another route's dependencies. Follow the license and attribution requirements of every dependency.
 
 ## 4. Verify and submit
 
-Run meaningful checks for the changed behavior and the repo's secret scans. Test on the claimed device or service when available: setup, authentication, target identity, data exchange, stop, restart/reconnect, failure handling, and rollback. For voice, test microphone control and whether a second computer is required. If something has not been tested, label it explicitly and narrow the support claim. Open a PR explaining the change, evidence, limitations, and recovery; maintainers review it.
+Run checks appropriate to your change, including the secret scan. Record the exact agent, target, versions, steps and observed results. Where applicable, verify setup, authentication, data exchange, stopping, restart, failure handling and rollback. For voice, verify microphone controls and whether another computer is required. Mark missing tests and narrow claims to the actual evidence. Never include sensitive output in the PR.
 
-## 5. Make the route discoverable
+Fork the repository, open a branch and submit a pull request. The repository owner reviews and approves changes before merging. See [Contributing](../CONTRIBUTING.md).
 
-Once reviewed and supported, add one **Available** row to `integrations/README.md`. The setup skill uses that index: it selects the only available route automatically, or asks the user when multiple routes exist and the target is unclear. Keep planned or partial work marked **Planned** or **Experimental / not yet available** until it meets the documented scope. Update README links and credit contributors.
+## 5. Add the catalog entry
+
+Add a row to the [integration catalog](../integrations/README.md) with the agent, device or service, status, tested scope, and guide. Mark an unfinished idea **Planned** or **Experimental / not yet available**. Mark a route **Available** only when its documented setup and stated capabilities have been verified. The setup skill selects only available matching routes.

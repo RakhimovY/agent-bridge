@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Renamed the project to Agent Bridge and clarified how contributors can propose and document connections between different AI agents and devices or services.
 - Organized Dot Connect as an integration catalog, with the Yandex Station route documented as experimental and additional routes open to contributions.
 - Added the `dot-connect-init` setup skill, integration proposal workflow, contribution and security guidance, issue forms, and PR template.
 - Added a telephone-style ringback while connecting. Its signal and ARM build were checked, and the user confirmed hearing it followed by a Dot reply. Reboot with this version remains unverified.

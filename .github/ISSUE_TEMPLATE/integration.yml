@@ -1,10 +1,16 @@
 name: Integration proposal
-description: Propose connecting a Dot to another device or service
+description: Propose connecting an AI agent to a device or service
 labels: [enhancement]
 body:
   - type: markdown
     attributes:
-      value: Do not include credentials, private Dot URLs, device IDs, raw logs, or network captures. See docs/adding-integrations.md for the contribution path.
+      value: Do not include credentials, private account URLs, device IDs, raw logs, or network captures. See docs/adding-integrations.md for the contribution path.
+  - type: input
+    id: agent
+    attributes:
+      label: AI agent or agent service
+    validations:
+      required: true
   - type: input
     id: target
     attributes:
@@ -20,4 +26,4 @@ body:
   - type: textarea
     id: path
     attributes:
-      label: Proposed approach, dependencies, known limitations, and open questions
+      label: Proposed approach, connection, dependencies, costs, known limitations, and open questions

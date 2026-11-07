@@ -2,7 +2,7 @@
 
 ## Verification
 
-- Device/service and version tested:
+- Agent, device or service, and versions tested:
 - Steps and results:
 - Untested behavior and limitations:
 - Rollback or recovery:
@@ -13,3 +13,4 @@
 - [ ] Tests and secret checks appropriate to the change have run.
 - [ ] No credentials, private IDs, logs, firmware, or backups are included.
 - [ ] Third-party sources and license rights are identified.
+- [ ] New or changed route dependencies and tests are scoped to that route.
