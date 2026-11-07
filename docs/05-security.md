@@ -1,21 +1,21 @@
-# 5. Секреты и защита публикаций
+# 5. Secrets and publication safety
 
-## Что никогда не коммитить
+## Never commit
 
-Приватные SSH-ключи и ключи хоста, токены и cookie ChatGPT, содержимое `web-session.json`, исходные сетевые дампы, URL с параметрами доступа, сертификаты с приватными ключами, дампы и архивы устройства, бэкапы `/data`, журналы root-стенда, учётные данные Wi-Fi и VPN. Не публикуйте реальные IP-адреса и идентификаторы устройств или Dot без осознанного решения. `.gitignore` помогает, но не защищает от принудительного добавления или попадания секрета в уже отслеживаемый файл.
+Private SSH and host keys, ChatGPT tokens and cookies, the contents of `web-session.json`, raw network captures, URLs with access parameters, certificates with private keys, device dumps and archives, `/data` backups, root toolkit logs, and Wi-Fi or VPN credentials. Do not publish real IP addresses or device or Dot IDs without an informed decision. `.gitignore` helps, but does not prevent forced inclusion or secrets being added to an already tracked file.
 
-## Перед каждым коммитом и push
+## Before every commit and push
 
 ```sh
-# macOS, при установленном Homebrew:
+# macOS with Homebrew installed:
 brew install gitleaks
 ./scripts/setup-hooks.sh
 ```
 
-Локальный `pre-commit` сканирует staged-изменения, а `pre-push` историю репозитория. Если Gitleaks отсутствует или находит возможный секрет, операция останавливается. Хуки хранятся в репозитории, но **в каждом новом клоне нужно запустить setup**. Git допускает их отключение и обход: не используйте `--no-verify`. Проверяйте также вложения, бинарники и контекст вручную.
+The local `pre-commit` hook scans staged changes, and `pre-push` scans repository history. If Gitleaks is missing or finds a possible secret, the operation stops. The hooks are stored in the repository, but **you must run setup in every new clone**. Git permits hooks to be disabled or bypassed: do not use `--no-verify`. Also review attachments, binaries, and context manually.
 
-GitHub Actions дополнительно сканирует отправленные изменения после push и pull request. Это обнаружение после отправки, а не защита до публикации. В исходном публичном репозитории также включены встроенные Secret scanning и Push protection; для своего форка проверьте их в GitHub Settings -> Code security and analysis. Даже вместе эти механизмы не гарантируют обнаружение всех секретов.
+GitHub Actions additionally scans submitted changes after pushes and pull requests. This detects problems after submission; it does not protect data before publication. The original public repository also has built-in Secret scanning and Push protection enabled; check GitHub Settings -> Code security and analysis for your own fork. Even together, these mechanisms cannot guarantee detection of every secret.
 
-## Если секрет попал в публичный Git
+## If a secret reaches public Git
 
-Считайте его скомпрометированным: немедленно отзовите/замените его у провайдера, завершите сессии, затем разберитесь с очисткой истории и копий. Обычное удаление файла следующим коммитом не удаляет его из истории. Не отправляйте сам секрет при обращении за помощью.
+Treat it as compromised: immediately revoke or replace it with the provider, terminate sessions, and then work on cleaning history and copies. Deleting the file in a later commit does not remove it from history. Do not send the secret itself when asking for help.

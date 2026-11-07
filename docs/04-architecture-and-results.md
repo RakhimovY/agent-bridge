@@ -1,27 +1,27 @@
-# 4. Устройство и результаты
+# 4. Architecture and results
 
-## Архитектура
+## Architecture
 
-Штатный сервис Алисы получает фразу активации и передаёт локальную команду нативному клиенту. Тот работает на колонке, через WebRTC обменивается звуком с сервисом OpenAI и использует сохранённую веб-сессию ChatGPT. Удалённый аккаунт и интернет нужны; ноутбук как прокси не используется.
+The stock Alice service receives the activation phrase and passes a local command to the native client. The client runs on the speaker, exchanges audio with OpenAI over WebRTC, and uses a saved ChatGPT web session. An account and internet access are required; a laptop is not used as a proxy.
 
-Патч к `0.3.7` выбирает Dot при наличии `ALISA_DOT_ID`, создаёт SDP-предложение, отправляет его в веб-интерфейс звонков Dot, устанавливает полученный SDP-ответ и канал данных, затем присоединяет звонок. Именно порядок имеет значение: попытка присоединиться до установления соединения дала HTTP 502. При завершении клиент отправляет запрос остановки. Без переменной используется прежний путь основного ChatGPT.
+The `0.3.7` patch selects the Dot when `ALISA_DOT_ID` is present, creates an SDP offer, sends it to the Dot call web interface, applies the SDP answer, opens the data channel, and then attaches the call. The order matters: attaching before the connection was established returned HTTP 502. The client sends a stop request when the call ends. Without the variable, the existing primary ChatGPT path remains in use.
 
-`ALISA_DOT_ID` состоит из идентификаторов аккаунта и Dot. Для соответствующего веб-запроса адаптация передаёт заголовок аккаунта. Это наблюдение из работы браузера, а не обещание стабильного публичного API. Тестовая текстовая команда исходного клиента не совместима с этим экспериментом: без неё аудиоканал держался, а с ней закрывался примерно через полсекунды.
+`ALISA_DOT_ID` contains the account and Dot identifiers. The adaptation passes an account header for the relevant web request. This is an observation of browser behavior, not a promise of a stable public API. The original client's synthetic text probe is incompatible with this experiment: the audio channel remained open without it, but closed after roughly half a second when it was sent.
 
-## Результаты одного устройства
+## Results on one device
 
-1. Обычный голосовой ChatGPT работал в нативном режиме, в том числе после перезагрузки.
-2. Изолированная сборка ARMv7 без микрофона установила канал и в 10-секундном тесте передала 501 и получила 469 аудиопакетов. Это проверка транспорта, не доказательство разговора.
-3. После обратимого переключения пользователь задал вопрос и услышал ответ Wall-e. У Dot появился завершённый звонок продолжительностью около минуты.
-4. После перезагрузки клиент автоматически поднялся и пользователь снова услышал ответ. Проверено отсутствие настройки прокси на процессе станции.
-5. Закрытие командой вернуло клиент в состояние ожидания; историю звонка проверили в браузере.
+1. Regular ChatGPT voice worked in native mode, including after reboot.
+2. An isolated ARMv7 build without microphone access established a channel and sent 501 and received 469 audio packets over a 10-second test. This checks transport, not a conversation.
+3. After a reversible switch, the user asked a question and heard Wall-e reply. A completed call of about one minute appeared in the Dot.
+4. After reboot, the client started automatically and the user heard another reply. The speaker process had no proxy configured.
+5. The close command returned the client to idle; call history was checked in the browser.
 
-Не проверены все модели и версии, поведение при истечении сессии, работа физической кнопки микрофона, длительная стабильность, приватность в недоверенной сети, автоматический возврат заводской прошивки и работоспособность сессии после изменений серверного API.
+We have not tested all models or firmware versions, session expiration, the physical microphone button, long-term stability, privacy on untrusted networks, automatic factory firmware restoration, or session behavior after server-side API changes.
 
-## Изменения в адаптации
+## Adaptation changes
 
-- `dot_signaling.hpp`: построение запроса и проверка адреса вызова без размещения реальных идентификаторов.
-- `web_auth.hpp`: нужные заголовки, JSON и SDP, считывание `Location`, пустые POST для присоединения и остановки.
-- `voice_call.hpp`: присоединение после открытия WebRTC, завершение звонка, режим аудиодиагностики.
-- `build_native.py`: Zig и архиватор через переменные/обёртки для кросс-сборки на Mac.
-- `dot_signaling.cpp`: локальные проверки формирования запроса и адреса. Используются синтетические идентификаторы.
+- `dot_signaling.hpp`: constructs requests and validates call URLs without embedding real IDs.
+- `web_auth.hpp`: required headers, JSON and SDP, `Location` parsing, and empty POST requests for attaching and stopping.
+- `voice_call.hpp`: attaches after WebRTC opens, ends the call, and provides an audio diagnostics mode.
+- `build_native.py`: Zig and archiver selection through variables and wrappers for cross-building on Mac.
+- `dot_signaling.cpp`: local request and URL checks using synthetic IDs.

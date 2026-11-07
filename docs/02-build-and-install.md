@@ -1,23 +1,23 @@
-# 2. Клиент и сборка
+# 2. Client and build
 
-Установка подразумевает уже работающие root и SSH. Сначала установите и проверьте штатный нативный режим [Alisa Voice](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant) согласно документации его версии: авторизация, звук, запуск и остановка, автозапуск. Его установщик описывает Linux и Windows; в нашем эксперименте работа с macOS потребовала ручных шагов. Эта инструкция не обещает автоматическую установку на Mac.
+Installation assumes working root and SSH. First install and verify the standard native mode of [Alisa Voice](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant) according to that version's documentation: authentication, audio, start and stop, and autostart. Its installer documents Linux and Windows; our macOS experiment required manual steps. This guide does not promise automated installation on Mac.
 
-У нас базовый клиент `0.3.7` был установлен в `/data/opt/alisa-standalone`. Сессия хранится в `state/web-session.json` с правами `600`; каталог состояния закрыт для остальных пользователей. Это действующий доступ к аккаунту: используйте только на своём доверенном устройстве. Никакие значения сессии не нужны в репозитории.
+Our base client `0.3.7` was installed under `/data/opt/alisa-standalone`. The session is stored in `state/web-session.json` with mode `600`; the state directory is inaccessible to other users. This grants account access: use it only on a trusted device you own. No session values belong in the repository.
 
-## Подготовить исходники
+## Prepare the source
 
-На компьютере установите Git, Python 3, CMake, Ninja, компилятор и Zig 0.14.1 для своей платформы. Следующий пример показывает сборку на macOS с Apple Silicon и обычным Homebrew. Исходники и версии зависят от upstream.
+Install Git, Python 3, CMake, Ninja, a compiler, and Zig 0.14.1 for your platform on the computer. This example covers macOS on Apple Silicon with Homebrew. Sources and versions are controlled by upstream.
 
 ```sh
 git clone https://github.com/rison1337/Alisa-ChatGPT-voice-assistant.git alisa-voice
 cd alisa-voice
 git checkout 2caf3b40635d0bacad1f42b2bb54b326e9c007d8
-# Путь к своей локальной копии данного репозитория:
+# Use the path to your local copy of this repository:
 git apply --check /PATH/TO/yandex-station-dot/patches/alisa-voice-0.3.7-dot.patch
 git apply /PATH/TO/yandex-station-dot/patches/alisa-voice-0.3.7-dot.patch
 ```
 
-Скачайте `alisa-voice-sources.tar.gz` и файл `.sha256` из [релиза upstream v0.2.0](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant/releases/tag/v0.2.0), проверьте контрольную сумму и распакуйте только зависимости `engines/native/research/upstream`. Точные команды и история зависимостей: [upstream development.md](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant/blob/2caf3b40635d0bacad1f42b2bb54b326e9c007d8/docs/development.md#исходники-зависимостей). Не распаковывайте архив поверх чужого проекта без проверки его содержимого.
+Download `alisa-voice-sources.tar.gz` and its `.sha256` file from the [upstream v0.2.0 release](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant/releases/tag/v0.2.0), verify the checksum, and extract only the `engines/native/research/upstream` dependencies. For dependency history and upstream instructions, see [development.md](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant/blob/2caf3b40635d0bacad1f42b2bb54b326e9c007d8/docs/development.md). Do not extract an archive over someone else's project without inspecting it first.
 
 ```sh
 curl -fLO https://github.com/rison1337/Alisa-ChatGPT-voice-assistant/releases/download/v0.2.0/alisa-voice-sources.tar.gz
@@ -26,7 +26,7 @@ shasum -a 256 -c alisa-voice-sources.tar.gz.sha256
 tar -xzf alisa-voice-sources.tar.gz --strip-components=1 alisa-voice-sources/engines/native/research/upstream
 ```
 
-На macOS мы использовали официальный архив Zig `0.14.1` для `aarch64-macos`; проверенный SHA-256 архива: `39f3dc5e79c22088ce878edc821dedb4ca5a1cd9f5ef915e9b3cc3053e8faefa`. Перед использованием проверьте текущие источники и контрольные суммы Zig. Патч добавляет переменную `DOT_ZIG` и обёртки `ar`/`ranlib` для сборки с Mac.
+On macOS we used the official Zig `0.14.1` archive for `aarch64-macos`; the verified archive SHA-256 was `39f3dc5e79c22088ce878edc821dedb4ca5a1cd9f5ef915e9b3cc3053e8faefa`. Verify current Zig sources and checksums before use. The patch adds `DOT_ZIG` and `ar`/`ranlib` wrappers for building on Mac.
 
 ```sh
 export DOT_ZIG=/PATH/TO/zig
@@ -38,13 +38,13 @@ cmake --build engines/native/build/client --target alisa-standalone --parallel 4
 file engines/native/build/client/alisa-standalone
 ```
 
-Для нашего устройства результат: 32-битный ARM ELF, hard-float (`arm-linux-gnueabihf`), не macOS-приложение. Исходный архив, бинарники, логи сборки и локальные сессии в Git не добавлять.
+For our device the output is a 32-bit ARM ELF, hard-float (`arm-linux-gnueabihf`), not a macOS app. Do not add the source archive, binaries, build logs, or local sessions to Git.
 
-## Установка экспериментального бинарника
+## Install the experimental binary
 
-В этой части нет универсального безопасного скрипта: пути, способ SSH, свободное место и бэкапы зависят от вашей установки. На нашей станции при неактивном разговоре мы остановили `run.sh`, сохранили прежний бинарник и `runtime.env` в закрытой отдельной папке, заменили бинарник на собранный, добавили ID Dot в `runtime.env` и снова запустили `run.sh`. Перед заменой убедитесь, что восстановление именно вашей конфигурации возможно.
+There is no universal safe script for this step: paths, SSH configuration, available space, and backups depend on your installation. With no call in progress, we stopped `run.sh`, saved the previous binary and `runtime.env` in a private separate directory, replaced the binary with our build, added the Dot ID to `runtime.env`, and restarted `run.sh`. Before replacing anything, make sure you can restore your specific configuration.
 
-На нашей станции пути:
+Our paths:
 
 ```text
 /data/opt/alisa-standalone/bin/alisa-standalone
@@ -53,4 +53,4 @@ file engines/native/build/client/alisa-standalone
 /data/opt/alisa-standalone/run.sh
 ```
 
-Фактические команды резервирования, копирования и запуска приведены в [следующем разделе](03-use-and-rollback.md) с переменными вместо адресов и идентификаторов. Не выполняйте команды до проверки путей и возможности вернуть прежний клиент.
+The [next section](03-use-and-rollback.md) contains backup, copy, and startup commands with variables instead of actual addresses or IDs. Do not run them until you have checked paths and can restore the previous client.

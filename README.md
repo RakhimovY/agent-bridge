@@ -1,41 +1,44 @@
-# Wall-e в Яндекс Станции Лайт 1
+# Wall-e on Yandex Station Lite 1
 
-Эксперимент: звонок конкретному ChatGPT Dot прямо с Яндекс Станции Лайт 1, без постоянно включённого компьютера. Колонка использует Wi-Fi, микрофоны и динамик; отдельный WebRTC-клиент запускается на самой станции.
+An experiment in calling a specific ChatGPT Dot directly from a Yandex Station Lite 1, without a computer running continuously. The speaker uses its own Wi-Fi, microphones, and speaker; a separate WebRTC client runs on the device.
 
 ```text
-«Алиса, открой чат» -> локальная команда -> клиент на станции -> звонок Dot
+"Алиса, открой чат" -> local command -> client on the speaker -> Dot call
 ```
 
-Работает как надстройка: штатная Алиса остаётся для запуска и остановки. Проверено 7 ноября 2026 на одной Станции Лайт 1 (`YNDX-00025`, `yandexmicro`): Wall-e ответил голосом, затем ответил снова после перезагрузки. В журнале Dot появился завершённый звонок. Другие модели и прошивки здесь не проверялись.
+This is an add-on: the stock Alice assistant remains in place to start and stop calls. Tested on November 7, 2026 on one Station Lite 1 (`YNDX-00025`, `yandexmicro`): Wall-e replied by voice, then replied again after a reboot. A completed call appeared in the Dot's history. Other models and firmware versions have not been tested here.
 
-## Прежде чем начать
+## Before you start
 
-- Нужна своя колонка с root и SSH, аккаунт ChatGPT с доступом к Dot и домашняя сеть с интернетом.
-- Root и откат прошивки могут привести к потере настроек или неработоспособности устройства. На нашей станции обновления прошивки отключены, поэтому обновления безопасности также не устанавливаются.
-- Это исследовательская интеграция с недокументированным веб-интерфейсом OpenAI, не официальный SDK. Интерфейс, авторизация и ограничения подписки могут измениться. API-ключ в этой реализации не используется; на колонке хранится чувствительная веб-сессия аккаунта.
-- Физическое отключение микрофона в экспериментальном режиме на нашем устройстве не подтверждено. Не считайте аппаратную кнопку проверенной.
-- В примерах не публикуйте свои ID Dot, IP, куки, токены, SSH-ключи, дампы, прошивки и журналы. Используйте отдельный доверенный домашний сегмент сети. Не открывайте SSH или ADB в интернет.
+- You need your own rooted speaker with SSH, a ChatGPT account with access to a Dot, and a home network with internet access.
+- Rooting and downgrading firmware can erase settings or render the device unusable. Firmware updates are disabled on our speaker, so security updates are not installed either.
+- This is a research integration with an undocumented OpenAI web interface, not an official SDK. The interface, authentication, and subscription limits can change. This implementation does not use an API key; a sensitive web session is stored on the speaker.
+- The physical microphone mute has not been verified in this experimental mode on our device. Do not assume the hardware button works.
+- Never publish real Dot IDs, IP addresses, cookies, tokens, SSH keys, dumps, firmware, or logs. Use a trusted home network segment. Do not expose SSH or ADB to the internet.
 
-## Инструкция
+## Guide
 
-1. [Подготовка станции, root и возврат сети](docs/01-station.md).
-2. [Установка голосового клиента и сборка адаптации](docs/02-build-and-install.md).
-3. [Подключение своего Dot, проверка и откат](docs/03-use-and-rollback.md).
-4. [Как устроены звонки и что именно проверено](docs/04-architecture-and-results.md).
-5. [Защита секретов и публикации](docs/05-security.md).
+1. [Prepare the speaker, obtain root, and restore the network](docs/01-station.md).
+2. [Install the voice client and build the adaptation](docs/02-build-and-install.md).
+3. [Connect your Dot, test it, and roll back](docs/03-use-and-rollback.md).
+4. [Architecture and test results](docs/04-architecture-and-results.md).
+5. [Protect secrets and publications](docs/05-security.md).
 
-Изменения кода находятся в [патче](patches/alisa-voice-0.3.7-dot.patch). Он предназначен для исходного клиента на конкретном коммите, а не для произвольной последней версии. Это инженерный эксперимент, а не универсальный установщик: после применения патча и сборки нужно установить существующий клиент и вручную заменить его бинарник. Читайте шаги целиком до изменения своей станции.
+The code changes are in [the patch](patches/alisa-voice-0.3.7-dot.patch). It targets a specific upstream client commit, not an arbitrary latest version. This is an engineering experiment, not a universal installer: after applying the patch and building, you must install the existing client and manually replace its binary. Read the full guide before changing your speaker.
 
-## Управление
+## Voice commands
 
-- Начать: «Алиса, открой чат», затем говорить с Dot.
-- Завершить: «Алиса, закрой чат».
-- Если браузерная сессия истечёт, восстановите вход согласно документации исходного клиента. Не отправляйте значения cookie или токенов в чаты, issues или логи.
+The commands below are the exact Russian phrases configured on our speaker. Say them in Russian; the English text is an explanation, not a tested command.
 
-## Авторы и исходные проекты
+- Start: **"Алиса, открой чат"** ("Alice, open the chat"), then speak to the Dot.
+- End: **"Алиса, закрой чат"** ("Alice, close the chat").
 
-- [Alisa-ChatGPT-voice-assistant](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant), на его клиенте построена адаптация, базовый коммит `2caf3b40635d0bacad1f42b2bb54b326e9c007d8`.
-- [lite-kit](https://github.com/krevetkqqq/lite-kit), стенд для подготовки совместимых устройств. Наш случай привязан к Лайт 1 и указанной прошивке, не является подтверждением всех заявлений стенда.
-- Патч содержит контекст исходных файлов. У upstream на момент проверки в GitHub не указана лицензия проекта; соблюдайте права авторов и лицензии зависимостей, перечисленные в upstream.
+If the browser session expires, restore the login according to the upstream client's documentation. Do not send cookie or token values to chats, issues, or logs.
 
-Проект не связан официально с Яндексом или OpenAI.
+## Credits and upstream projects
+
+- [Alisa-ChatGPT-voice-assistant](https://github.com/rison1337/Alisa-ChatGPT-voice-assistant): the client this adaptation builds on, at commit `2caf3b40635d0bacad1f42b2bb54b326e9c007d8`.
+- [lite-kit](https://github.com/krevetkqqq/lite-kit): a setup toolkit for compatible devices. Our results concern the Lite 1 and the firmware specified here; they do not verify every claim made by the toolkit.
+- The patch includes context from upstream files. GitHub did not show an upstream project license when checked; respect the authors' rights and the dependency licenses listed upstream.
+
+This project is not officially affiliated with Yandex or OpenAI.
