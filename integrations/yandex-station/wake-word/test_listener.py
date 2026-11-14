@@ -24,13 +24,16 @@ class ListenerTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp.cleanup()
 
-    def start_listener(self, path, models=None, muted=False):
+    def start_listener(self, path, models=None, muted=False, peak=None):
         mute_file = path.parent / 'mute'
         mute_file.write_text('1' if muted else '0')
         models = models or ['keywords', 'encoder', 'decoder', 'joiner', 'tokens']
+        env = dict(os.environ, DOT_TEST_MUTE_FILE=str(mute_file))
+        if peak is not None:
+            env['DOT_WAKE_PEAK'] = str(peak)
         p = subprocess.Popen([str(self.binary), str(path)] + models,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                             env=dict(os.environ, DOT_TEST_MUTE_FILE=str(mute_file)))
+                             env=env)
         def cleanup():
             if p.poll() is None:
                 p.kill()
@@ -41,6 +44,21 @@ class ListenerTest(unittest.TestCase):
         self.assertTrue(select.select([p.stdout], [], [], 5)[0], 'listener did not initialize')
         self.assertEqual(p.stdout.readline().strip(), 'READY')
         return p
+
+    def test_configured_peak_ignores_signal_below_gate(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'mic.sock'
+            p = self.start_listener(path, peak=12000)
+            sender = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            self.addCleanup(sender.close)
+            for sample in [10000] * 10 + [0] * 40:
+                try:
+                    sender.sendto(struct.pack('<160h', *([sample] * 160)), str(path))
+                except FileNotFoundError:
+                    break
+                time.sleep(0.005)
+            time.sleep(0.3)
+            self.assertIsNone(p.poll(), 'input below the configured gate triggered recognition')
 
     def test_prewarm_waits_without_owning_the_microphone(self):
         with tempfile.TemporaryDirectory() as root:

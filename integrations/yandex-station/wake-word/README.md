@@ -109,6 +109,19 @@ For an English or combined bundle, replace `"$DOT_WAKE_BUILD_DIR/bundle"` in the
 
 The service waits for available memory, launches the listener, and releases it when memory is critically low; it retries when enough memory returns. It does not impose a conversation time limit. Check `service.sh status`, then test your phrase, the Dot reply, bare `stop`, and a later repeat call. A working listener is not proof that your phrase is reliable or that hardware mute works on a different device.
 
+### Quiet microphone or missed wake words
+
+On one Lite 1, the owner could start a call but the Dot did not hear speech. The upstream VQE tap supports `ALICE_CAPTURE_GAIN`; setting it to `8` in the capture task's `envs` in the private launch profile amplified the copied audio. The owner then confirmed a voice reply. This also changes the signal sent to the wake and stop detectors, not the original Alice VQE output. Too much gain can distort sound, so test your device rather than assuming the same setting is appropriate.
+
+The wake listener defaults to a peak gate of `60` in signed 16-bit PCM. `DOT_WAKE_PEAK` changes this gate. For the same device with 8x capture gain, `DOT_WAKE_PEAK=240` was tested after 480 required shouting; the owner confirmed two normal-volume wakes. These few attempts do not establish accuracy or false-activation rates. For an existing installation, stop the wake service while idle, set the variable in the environment used to start it, then start the service again:
+
+```sh
+ssh -i "$STATION_KEY" -p "$SSH_PORT" "$SSH_TARGET" '/data/opt/dot-wake/service.sh stop'
+ssh -i "$STATION_KEY" -p "$SSH_PORT" "$SSH_TARGET" 'DOT_WAKE_PEAK=240 /data/opt/dot-wake/service.sh start'
+```
+
+For the setting to persist, also supply `DOT_WAKE_PEAK=240` on the `service.sh start` line in your own boot hook. Set `ALICE_CAPTURE_GAIN=8` only in the task that has both `LD_PRELOAD` for `vqe_tap.so` and `ALICE_CAPTURE_SOCKET`; preserve all other entries. Back up your private launch profile before editing it, restart the native client while idle and verify the actual gain is applied. Launch profile paths and structure vary: do not overwrite an existing profile with an example. Remove the gain setting and restore the prior wake gate or saved files if audio clips or false wakes occur. Never publish the private profile or account data.
+
 If a transfer is interrupted, inspect the new directory first. Remove it only if you have established that it is the incomplete bundle from this installation, then retry; do not overwrite a working installation. `service.sh status` checks the service process only: it does not prove the model is ready or the microphone is connected. Verify readiness by speaking your phrase.
 
 For autostart, integrate `/data/opt/dot-wake/service.sh start` into **your existing** native-client boot hook after that client starts. Boot hooks differ by installation. The following example applies only if `/data/opt/alisa-cli/boot.sh` has the exact native-client start line shown. It backs up the hook and refuses to overwrite an existing backup:

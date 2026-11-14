@@ -24,6 +24,9 @@ static void resume(int) { bind_permitted = 1; }
 int main(int argc, char **argv) {
   // socket followed by one or more groups: keywords, encoder, decoder, joiner, tokens
   if (argc < 7 || (argc - 2) % 5) return 2;
+  const char *peak_setting = std::getenv("DOT_WAKE_PEAK");
+  int peak_gate = peak_setting ? std::atoi(peak_setting) : 60;
+  if (peak_gate < 1 || peak_gate > 32767) return 2;
   const char *prewarm = std::getenv("DOT_WAKE_PREWARM");
   if (prewarm && !std::strcmp(prewarm, "1")) bind_permitted = 0;
   std::signal(SIGTERM, stop);
@@ -93,11 +96,11 @@ int main(int argc, char **argv) {
       if (voice.empty()) {
         for (auto sample : frame) preroll.push_back(sample);
         while (preroll.size() > 1280) preroll.pop_front();
-        if (peak > 60) { voice.assign(preroll.begin(), preroll.end()); preroll.clear(); }
+        if (peak > peak_gate) { voice.assign(preroll.begin(), preroll.end()); preroll.clear(); }
         continue;
       }
       voice.insert(voice.end(), frame, frame + 160);
-      silence = peak > 60 ? 0 : silence + 1;
+      silence = peak > peak_gate ? 0 : silence + 1;
       if (silence < 30 && voice.size() < 80000) continue;
       std::vector<float> samples;
       samples.reserve(voice.size() + 16000);

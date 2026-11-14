@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Yandex Station: support bare `stop` during Dot ringback with the optional stop detector, preserving the physical mute gate and microphone handoff.
+- Yandex Station: make the local wake listener's audio peak gate configurable and document a tested capture-gain adjustment for quiet microphones.
+
+## Unreleased
+
 - Renamed the project to Agent Bridge and clarified how contributors can propose and document connections between different AI agents and devices or services.
 - Organized Dot Connect as an integration catalog, with the Yandex Station route documented as experimental and additional routes open to contributions.
 - Added the `dot-connect-init` setup skill, integration proposal workflow, contribution and security guidance, issue forms, and PR template.

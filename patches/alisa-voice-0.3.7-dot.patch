@@ -1,8 +1,58 @@
+diff --git a/engines/native/native/connecting_capture.hpp b/engines/native/native/connecting_capture.hpp
+new file mode 100644
+index 0000000..d028aac
+--- /dev/null
++++ b/engines/native/native/connecting_capture.hpp
+@@ -0,0 +1,33 @@
++#pragma once
++#include <atomic>
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++#include <functional>
++#include <stdexcept>
++#include <string>
++#include <thread>
++#include <poll.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <sys/stat.h>
++#include <sys/un.h>
++#include <unistd.h>
++class ConnectingCapture {
++ int fd=-1;std::string path;struct stat owner{};std::atomic<bool> running{true};std::thread reader;
++ bool owns()const {struct stat now{};return !lstat(path.c_str(),&now)&&now.st_dev==owner.st_dev&&now.st_ino==owner.st_ino;}
++public:
++ ConnectingCapture(const std::string &name,std::function<bool()> unmuted,std::function<void(const int16_t*,size_t)> feed):path(name){
++  sockaddr_un addr{};addr.sun_family=AF_UNIX;if(name.size()>=sizeof(addr.sun_path))throw std::runtime_error("microphone_setup_failed");
++  fd=socket(AF_UNIX,SOCK_DGRAM,0);if(fd<0)throw std::runtime_error("microphone_setup_failed"); fcntl(fd,F_SETFD,FD_CLOEXEC); fcntl(fd,F_SETFL,fcntl(fd,F_GETFL)|O_NONBLOCK);
++  std::memcpy(addr.sun_path,name.c_str(),name.size()+1);unlink(name.c_str());
++  if(bind(fd,(sockaddr*)&addr,sizeof(addr))||lstat(name.c_str(),&owner)){close(fd);fd=-1;throw std::runtime_error("microphone_bind_failed");}
++  reader=std::thread([this,unmuted,feed]{
++   while(running){pollfd p{fd,POLLIN,0};int n=poll(&p,1,50);if(!owns())break;if(n<=0)continue;
++    int16_t pcm[160];auto bytes=recv(fd,pcm,sizeof(pcm),0);
++    if(bytes>0&&bytes%sizeof(int16_t)==0&&unmuted())feed(pcm,size_t(bytes)/sizeof(int16_t));
++   }
++  });
++ }
++ ~ConnectingCapture(){running=false;if(reader.joinable())reader.join();if(fd>=0)close(fd);if(owns())unlink(path.c_str());}
++};
 diff --git a/engines/native/native/daemon.hpp b/engines/native/native/daemon.hpp
-index cb14b9e..1def663 100644
+index cb14b9e..500c5be 100644
 --- a/engines/native/native/daemon.hpp
 +++ b/engines/native/native/daemon.hpp
-@@ -27,6 +27,13 @@ class VoiceDaemon {
+@@ -3,6 +3,8 @@
+ #include "settings.hpp"
+ #include "children.hpp"
+ #include "http_server.hpp"
++#include "connecting_capture.hpp"
++#include "wake_mute.hpp"
+ #include <cmath>
+ 
+ inline std::string safe_error(const std::exception &exc){
+@@ -25,10 +27,17 @@ class VoiceDaemon {
+     void close_cue(){
+         if(test_mode||stopping||ending)return;
          try{
 +            bool dot=getenv("ALISA_DOT_ID");auto preset=dot_sound_preset();
 +            if(dot&&preset==DotSoundPreset::Silent)return;
@@ -18,14 +68,35 @@ index cb14b9e..1def663 100644
 +                else if(dot)gentle_cue_block(false,block,samples);else mode_cue_block(false,block,samples);
 +                pcm.write(samples,960);
              }pcm.drain();
-@@ -47,2 +54,5 @@ class VoiceDaemon {
+         }catch(const std::exception &){}
+     }
+@@ -45,9 +54,38 @@ class VoiceDaemon {
+             std::string action=request.value("action",std::string());
+             if(action=="close")continue;
              std::thread indicator_reader;
 +            std::thread ringback;
 +            std::atomic<bool> ringback_stop{false};
 +            auto stop_ringback=[&]{ringback_stop=true;if(ringback.joinable())ringback.join();};
              std::shared_ptr<Child> light;
-@@ -50,2 +60,11 @@ class VoiceDaemon {
++            int connecting_mute_fd=-1;
++            std::unique_ptr<LocalStopDetector> connecting_stop;
++            std::unique_ptr<ConnectingCapture> connecting_capture;
++            auto stop_connecting_capture=[&]{
++                connecting_capture.reset();connecting_stop.reset();
++                if(connecting_mute_fd>=0){close(connecting_mute_fd);connecting_mute_fd=-1;}
++            };
+             try{
                  if(agent&&!agent->acquire())throw std::runtime_error("native_focus_not_ready");
++                if(!test_mode&&getenv("ALISA_DOT_ID"))if(const char *dir=getenv("ALISA_STOP_DIR")){
++                    connecting_mute_fd=wake_mute_open();
++                    if(connecting_mute_fd>=0)try{
++                        connecting_stop=std::make_unique<LocalStopDetector>(dir,[this]{submit({{"action","close"}});});
++                        auto *detector=connecting_stop.get();
++                        connecting_capture=std::make_unique<ConnectingCapture>((runtime_directory/"microphone.sock").string(),
++                            [this,&connecting_mute_fd]{return connecting_mute_fd>=0&&wake_unmuted(connecting_mute_fd);},
++                            [detector](const int16_t *samples,size_t count){detector->send(samples,count);});
++                    }catch(const std::exception &){stop_connecting_capture();}
++                }
 +                if(!test_mode&&getenv("ALISA_DOT_ID")&&dot_sound_preset()!=DotSoundPreset::Silent)ringback=std::thread([&]{
 +                    try{PcmOutput pcm("default");unsigned int block=0;
 +                        auto custom=dot_load_pcm("DOT_SOUND_RINGBACK");auto preset=dot_sound_preset();
@@ -36,14 +107,60 @@ index cb14b9e..1def663 100644
 +                    }catch(const std::exception &){}
 +                });
                  auto still_current=[&]{std::lock_guard<std::mutex> lock(mutex);
-@@ -72,2 +91,3 @@ class VoiceDaemon {
+                     return request.value("_generation",0UL)==generation&&!stopping&&!ending;};
+                 if(!still_current())throw std::runtime_error("call_cancelled");
+@@ -70,6 +108,7 @@ class VoiceDaemon {
+                 options.parent_message_id=entry.value("parent_message_id",std::string());
+                 options.voice_session_id=entry.value("voice_session_id",std::string());
                  options.connected=[this]{std::lock_guard<std::mutex> lock(mutex);phase="active";};
-+                options.before_playback=stop_ringback;
++                options.before_playback=[&]{stop_connecting_capture();stop_ringback();};
                  std::string id=entry["id"].get<std::string>();
-@@ -86,2 +106,3 @@ class VoiceDaemon {
+                 options.update=[this,id,account](const json &values){settings.update(id,values,account);};
+                 auto active=std::make_shared<VoiceCall>(options);
+@@ -84,6 +123,8 @@ class VoiceDaemon {
+                 std::string reason=safe_error(exc);
+                 if(reason!="call_cancelled"&&reason!="https_transport_42")error=reason;
              }
++            stop_connecting_capture();
 +            stop_ringback();
              if(agent)agent->idle();
+             bool cue=false;
+             {
+diff --git a/engines/native/native/wake_mute.hpp b/engines/native/native/wake_mute.hpp
+new file mode 100644
+index 0000000..6790330
+--- /dev/null
++++ b/engines/native/native/wake_mute.hpp
+@@ -0,0 +1,29 @@
++#pragma once
++#include <fcntl.h>
++#include <linux/input.h>
++#include <cstdio>
++#include <cstring>
++#include <sys/ioctl.h>
++#include <unistd.h>
++
++inline int wake_mute_open() {
++  for (int i = 0; i < 32; ++i) {
++    char path[32];
++    std::snprintf(path, sizeof(path), "/dev/input/event%d", i);
++    int fd = open(path, O_RDONLY | O_CLOEXEC);
++    if (fd < 0) continue;
++    char name[80] = {};
++    unsigned long bits[(KEY_MAX + 8 * sizeof(long)) / (8 * sizeof(long))] = {};
++    if (ioctl(fd, EVIOCGNAME(sizeof(name)), name) >= 0 && !std::strcmp(name, "gpio-keys-filter") &&
++        ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(bits)), bits) >= 0 &&
++        (bits[KEY_MUTE / (8 * sizeof(long))] & (1UL << (KEY_MUTE % (8 * sizeof(long)))))) return fd;
++    close(fd);
++  }
++  return -1;
++}
++
++inline bool wake_unmuted(int fd) {
++  unsigned long bits[(KEY_MAX + 8 * sizeof(long)) / (8 * sizeof(long))] = {};
++  if (ioctl(fd, EVIOCGKEY(sizeof(bits)), bits) < 0) return false;
++  return !(bits[KEY_MUTE / (8 * sizeof(long))] & (1UL << (KEY_MUTE % (8 * sizeof(long)))));
++}
 diff --git a/engines/native/native/dot_signaling.hpp b/engines/native/native/dot_signaling.hpp
 new file mode 100644
 index 0000000..375933d
